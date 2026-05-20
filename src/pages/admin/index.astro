@@ -1,0 +1,26 @@
+---
+import { AdminApp } from "../../components/admin/AdminApp";
+import { getCurrentUser } from "../../lib/auth";
+
+const user = await getCurrentUser(Astro.request, Astro.locals);
+
+if (!user) {
+  return Astro.redirect("/admin/login");
+}
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin | Clastro CMS</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <style>
+      body { margin: 0; }
+    </style>
+  </head>
+  <body>
+    <AdminApp client:only="react" user={{ id: user.id, name: user.name, email: user.email, role: user.role }} />
+  </body>
+</html>

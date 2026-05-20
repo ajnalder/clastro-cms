@@ -1,0 +1,44 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "clastro-cms-demo",
+  "account_id": "8cd63c32a2f2bd85a8d4088b24acef09",
+	"workers_dev": true,
+	"preview_urls": true,
+	"compatibility_date": "2026-04-08",
+	"compatibility_flags": [
+		"nodejs_compat",
+		"global_fetch_strictly_public"
+	],
+	"assets": {
+		"binding": "ASSETS",
+		"directory": "./dist/client"
+	},
+	"images": {
+		"binding": "IMAGES"
+	},
+	"vars": {
+		"MEDIA_PUBLIC_BASE_URL": ""
+	},
+	"observability": {
+		"enabled": true
+	},
+	"kv_namespaces": [
+		{
+			"binding": "SESSION",
+			"id": "f29734b369be43539a388d10c873e0e2"
+		}
+	],
+	"r2_buckets": [
+		{
+			"bucket_name": "clastro-cms-demo-media",
+			"binding": "MEDIA_BUCKET"
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "clastro-cms-demo-db",
+			"database_id": "b7da7472-2717-457a-bc40-e9e83aec9a53"
+		}
+	]
+}

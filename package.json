@@ -1,0 +1,47 @@
+{
+  "name": "clastro-cms-starter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "deploy": "npm run build && wrangler deploy --config dist/server/wrangler.json",
+    "deploy:dry-run": "npm run build && wrangler deploy --config dist/server/wrangler.json --dry-run",
+    "cf-typegen": "wrangler types",
+    "seed:demo": "node ./scripts/generate-demo-seed.mjs",
+    "admin:sql": "node ./scripts/create-admin-user-sql.mjs",
+    "seo:audit": "node ./scripts/seo-audit.mjs",
+    "hash:password": "node ./scripts/hash-password.mjs",
+    "test:roles": "node --experimental-strip-types --test tests/role-policy.test.mjs"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^13.1.7",
+    "@astrojs/react": "^5.0.2",
+    "@tailwindcss/vite": "^4.2.2",
+    "@tiptap/core": "^3.20.0",
+    "@tiptap/extension-image": "^3.20.0",
+    "@tiptap/extension-link": "^3.20.0",
+    "@tiptap/extension-table": "^3.20.0",
+    "@tiptap/extension-table-cell": "^3.20.0",
+    "@tiptap/extension-table-header": "^3.20.0",
+    "@tiptap/extension-table-row": "^3.20.0",
+    "@tiptap/pm": "^3.20.0",
+    "@tiptap/react": "^3.20.0",
+    "@tiptap/starter-kit": "^3.20.0",
+    "astro": "^6.1.3",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.2.2"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.8",
+    "@types/node": "^25.5.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "esbuild": "^0.27.3",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.61.1"
+  }
+}

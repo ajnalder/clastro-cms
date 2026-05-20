@@ -1,0 +1,38 @@
+{
+  "name": "your-project-name",
+  "account_id": "replace-with-cloudflare-account-id",
+  "compatibility_date": "2026-04-08",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist/client"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "your-project-db",
+      "database_id": "replace-with-d1-id"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "SESSION",
+      "id": "replace-with-kv-id"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "your-project-media"
+    }
+  ],
+  "vars": {
+    "MEDIA_PUBLIC_BASE_URL": "https://your-public-r2-domain.example.com"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

@@ -1,0 +1,173 @@
+---
+import { getCurrentUser } from "../../lib/auth";
+
+const user = await getCurrentUser(Astro.request, Astro.locals);
+const token = Astro.url.searchParams.get("token") || "";
+
+if (user) {
+  return Astro.redirect("/admin");
+}
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Accept CMS Invitation | Clastro CMS</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <style>
+      :root { color-scheme: light; --cms-navy: #020024; --cms-navy-soft: #08145a; --cms-cyan: #00d4ff; --cms-cyan-border: #9defff; --cms-cyan-pale: #e9fbff; }
+      body { align-items: center; background: radial-gradient(circle at 18% 18%, rgba(0, 212, 255, 0.16), transparent 28%), linear-gradient(135deg, var(--cms-navy) 0%, var(--cms-navy-soft) 42%, #f2f8fb 42%, #f2f8fb 100%); color: #17191c; display: grid; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; min-height: 100vh; padding: 1.5rem; }
+      .card { background: #fff; border: 1px solid #d9dfe5; border-radius: 18px; box-shadow: 0 24px 70px rgba(2, 0, 36, 0.18); max-width: 460px; padding: 1.5rem; width: 100%; }
+      .logoPanel { align-items: center; background: linear-gradient(90deg, var(--cms-navy) 0%, var(--cms-navy-soft) 100%); border-radius: 12px; display: flex; margin-bottom: 1.35rem; min-height: 4.25rem; padding: 0.85rem 1rem; }
+      .logo { display: block; height: auto; max-width: 12rem; width: 100%; }
+      .eyebrow { color: #067aa1; display: inline-block; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; margin-bottom: 0.75rem; text-transform: uppercase; }
+      h1 { font-size: 1.85rem; line-height: 1.05; margin: 0 0 0.55rem; }
+      p { color: #66707a; margin: 0 0 1rem; }
+      form { display: grid; gap: 0.9rem; }
+      label { display: grid; gap: 0.45rem; }
+      label span { font-size: 0.9rem; font-weight: 600; }
+      input { background: #fff; border: 1px solid #d4dae1; border-radius: 12px; color: inherit; font: inherit; min-height: 2.9rem; padding: 0.85rem 0.95rem; }
+      input:focus { border-color: var(--cms-cyan); box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.14); outline: none; }
+      button { background: var(--cms-cyan); border: 0; border-radius: 10px; color: var(--cms-navy); cursor: pointer; font: inherit; font-weight: 800; min-height: 2.9rem; padding: 0.9rem 1.2rem; }
+      button:hover { background: #5be5ff; }
+      button:disabled { cursor: wait; opacity: 0.7; }
+      .status { border-radius: 12px; display: none; font-size: 0.95rem; margin-top: 1rem; padding: 0.85rem 1rem; }
+      .status.is-visible { display: block; }
+      .status.is-error { background: rgba(171, 54, 54, 0.12); color: #8b2525; }
+      .status.is-info { background: rgba(28, 108, 65, 0.1); color: #1d6e45; }
+      .summary { background: var(--cms-cyan-pale); border: 1px solid var(--cms-cyan-border); border-radius: 14px; display: grid; gap: 0.6rem; margin-bottom: 1rem; padding: 0.95rem 1rem; }
+      .summary strong { font-size: 0.95rem; }
+      .summaryRow { display: flex; gap: 0.5rem; justify-content: space-between; }
+      .summaryRow span:last-child { color: #2a3441; font-weight: 600; text-align: right; }
+      .muted { color: #66707a; font-size: 0.9rem; }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <section class="card">
+      <div class="logoPanel"><img alt="Clastro CMS" class="logo" src="/images/clastro-logo.svg" /></div>
+      <span class="eyebrow">CMS Invitation</span>
+      <h1>Set up your login</h1>
+      <p>Use this one-time invitation to create your password and access the CMS.</p>
+
+      <div class="summary hidden" id="invite-summary">
+        <div class="summaryRow"><strong>Name</strong><span id="invite-name">-</span></div>
+        <div class="summaryRow"><strong>Email</strong><span id="invite-email">-</span></div>
+        <div class="summaryRow"><strong>Access</strong><span id="invite-role">Editor</span></div>
+        <div class="summaryRow"><strong>Expires</strong><span id="invite-expires">-</span></div>
+      </div>
+
+      <form class="hidden" id="invite-form">
+        <label>
+          <span>Name</span>
+          <input id="name" name="name" type="text" autocomplete="name" required />
+        </label>
+        <label>
+          <span>Password</span>
+          <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required />
+        </label>
+        <label>
+          <span>Confirm password</span>
+          <input id="confirm-password" name="confirm-password" type="password" autocomplete="new-password" minlength="10" required />
+        </label>
+        <button type="submit">Create Login</button>
+      </form>
+
+      <div class="status" id="status"></div>
+    </section>
+
+    <script is:inline define:vars={{ inviteToken: token }}>
+      const token = inviteToken || ""
+      const form = document.getElementById("invite-form")
+      const status = document.getElementById("status")
+      const summary = document.getElementById("invite-summary")
+      const nameInput = document.getElementById("name")
+      const passwordInput = document.getElementById("password")
+      const confirmPasswordInput = document.getElementById("confirm-password")
+
+      function formatRole(role) {
+        const normalized = String(role || "").toLowerCase().replace(/-/g, "_")
+
+        if (normalized === "super_admin") return "Super Admin"
+        if (normalized === "site_owner" || normalized === "owner" || normalized === "admin") return "Site Owner"
+        if (normalized === "collaborator") return "Collaborator"
+        return "Editor"
+      }
+
+      function setStatus(message, kind = "error") {
+        status.textContent = message
+        status.className = `status is-visible is-${kind}`
+      }
+
+      async function loadInvite() {
+        if (!token) {
+          setStatus("This invite link is missing its token.")
+          return
+        }
+
+        try {
+          const response = await fetch(`/api/auth/invite?token=${encodeURIComponent(token)}`)
+          const payload = await response.json().catch(() => null)
+
+          if (!response.ok || !payload?.invitation) {
+            setStatus(payload?.error || "This invitation is not valid anymore.")
+            return
+          }
+
+          const invitation = payload.invitation
+          document.getElementById("invite-name").textContent = invitation.name || "-"
+          document.getElementById("invite-email").textContent = invitation.email || "-"
+          document.getElementById("invite-role").textContent = formatRole(invitation.role)
+          document.getElementById("invite-expires").textContent = new Date(invitation.expiresAt).toLocaleString()
+          nameInput.value = invitation.name || ""
+          summary.classList.remove("hidden")
+          form.classList.remove("hidden")
+        } catch {
+          setStatus("This invitation could not be loaded.")
+        }
+      }
+
+      form?.addEventListener("submit", async (event) => {
+        event.preventDefault()
+        status.className = "status"
+
+        if (passwordInput.value !== confirmPasswordInput.value) {
+          setStatus("Passwords do not match.")
+          return
+        }
+
+        try {
+          const response = await fetch("/api/auth/invite/accept", {
+            method: "POST",
+            headers: {
+              accept: "application/json",
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              token,
+              name: nameInput.value,
+              password: passwordInput.value,
+            }),
+          })
+          const payload = await response.json().catch(() => null)
+
+          if (!response.ok) {
+            setStatus(payload?.error || "This invitation could not be accepted.")
+            return
+          }
+
+          setStatus("Login created. Redirecting to the CMS now.", "info")
+          window.setTimeout(() => {
+            window.location.href = "/admin"
+          }, 600)
+        } catch {
+          setStatus("This invitation could not be accepted.")
+        }
+      })
+
+      void loadInvite()
+    </script>
+  </body>
+</html>

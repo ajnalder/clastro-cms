@@ -1,0 +1,87 @@
+---
+import Layout from "../layouts/Layout.astro";
+import RecoveredPage from "../layouts/RecoveredPage.astro";
+import { getPageBySlug, listCatalogProducts, listPosts } from "../lib/repository";
+
+const cmsPage = await getPageBySlug(Astro.locals, "");
+const [posts, products] = await Promise.all([
+  listPosts(Astro.locals),
+  listCatalogProducts(Astro.locals),
+]);
+---
+
+{cmsPage ? (
+  <RecoveredPage
+    title={cmsPage.title}
+    description={cmsPage.description}
+    lang={cmsPage.lang}
+    slug=""
+    stylesheets={cmsPage.stylesheets}
+    contentHtml={cmsPage.contentHtml}
+  />
+) : (
+  <Layout
+    title="Clastro Demo | CMS Starter"
+    description="A generic Clastro CMS starter site for testing content, media, roles, products, posts, and live editing."
+  >
+    <main>
+      <section class="hero-shell">
+        <div class="hero-copy">
+          <p class="eyebrow">Clastro CMS Starter</p>
+          <h1>A generic site for testing the CMS before it goes into client work.</h1>
+          <p>
+            This demo gives the editor real pages, posts, products, media, and user roles to work with
+            without carrying a client brand into the starter.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="/admin">Open Admin</a>
+            <a class="button button-secondary" href="/admin/edit">Launch Live Editor</a>
+          </div>
+        </div>
+        <div class="hero-visual" aria-label="CMS dashboard preview">
+          <div class="hero-visual-bar"></div>
+          <div class="hero-visual-grid">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <div class="hero-visual-list">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Core Workflows</p>
+          <h2>One demo site, all major CMS paths.</h2>
+        </div>
+        <div class="feature-grid">
+          <article>
+            <h3>Live page editing</h3>
+            <p>Use the WYSIWYG editor against seeded marketing pages and confirm content saves back to D1.</p>
+          </article>
+          <article>
+            <h3>Repeatable content</h3>
+            <p>Blog posts and products exercise reusable content lists, metadata, rich text, and publishing.</p>
+          </article>
+          <article>
+            <h3>Access control</h3>
+            <p>Super admin, site owner, editor, and collaborator roles can be tested without a client site.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="split-section">
+        <div>
+          <p class="eyebrow">Demo Inventory</p>
+          <h2>Content currently available.</h2>
+          <p>The fallback site works without D1. Once seeded, the lists below come from the CMS repository.</p>
+        </div>
+        <div class="metric-grid">
+          <div><strong>{posts.length}</strong><span>Published posts</span></div>
+          <div><strong>{products.length}</strong><span>Demo products</span></div>
+          <div><strong>4</strong><span>User roles</span></div>
+        </div>
+      </section>
+    </main>
+  </Layout>
+)}

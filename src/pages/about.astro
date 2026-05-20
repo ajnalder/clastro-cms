@@ -1,0 +1,29 @@
+---
+import Layout from "../layouts/Layout.astro";
+import RecoveredPage from "../layouts/RecoveredPage.astro";
+import { getPageBySlug } from "../lib/repository";
+
+const cmsPage = await getPageBySlug(Astro.locals, "about");
+---
+
+{cmsPage ? (
+  <RecoveredPage {...cmsPage} stylesheets={cmsPage.stylesheets} contentHtml={cmsPage.contentHtml} />
+) : (
+  <Layout title="About Clastro Demo" description="About the generic Clastro CMS starter and its core boundaries.">
+    <main class="page-shell">
+      <section class="content-band">
+        <p class="eyebrow">About</p>
+        <h1>Clastro is the reusable CMS core. Client sites are implementations.</h1>
+        <p>
+          This starter is where shared CMS features are developed first: admin UX, roles, live editing,
+          media, analytics, AI settings, content APIs, and deployment patterns.
+        </p>
+      </section>
+      <section class="feature-grid">
+        <article><h2>Stable core</h2><p>Authentication, permissions, media, page editing, and data access should stay consistent across sites.</p></article>
+        <article><h2>Client layer</h2><p>Branding, public templates, content models, migrations, and integrations can change per project.</p></article>
+        <article><h2>Upgrade path</h2><p>Build features here, record the migration steps, then port the tested change into client CMS installs.</p></article>
+      </section>
+    </main>
+  </Layout>
+)}

@@ -1,0 +1,40 @@
+---
+import { getPageBySlug } from "../lib/repository";
+import RecoveredPage from "../layouts/RecoveredPage.astro";
+import SiteLayout from "../layouts/SiteLayout.astro";
+
+const slug = Array.isArray(Astro.params.slug)
+  ? Astro.params.slug.join("/")
+  : Astro.params.slug || "";
+const page = await getPageBySlug(Astro.locals, slug);
+
+if (!page) {
+  Astro.response.status = 404;
+}
+---
+
+{
+  page ? (
+    <RecoveredPage
+      title={page.title}
+      description={page.description}
+      lang={page.lang}
+      slug={slug}
+      stylesheets={page.stylesheets}
+      contentHtml={page.contentHtml}
+    />
+  ) : (
+    <SiteLayout
+      title="Page Not Found"
+      description="The requested page could not be found."
+      noindex={true}
+    >
+      <section class="section">
+        <div class="container container--narrow">
+          <h1>Page not found</h1>
+          <p>The requested page does not exist.</p>
+        </div>
+      </section>
+    </SiteLayout>
+  )
+}

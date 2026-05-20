@@ -1,0 +1,100 @@
+---
+import BookingModal from "../components/BookingModal.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import SiteScripts from "../components/SiteScripts.astro";
+import { getSiteSettings } from "../lib/repository";
+import {
+  buildOrganizationSchema,
+  buildWebPageSchema,
+  buildWebSiteSchema,
+  resolvePageSeo,
+} from "../lib/seo";
+
+interface Props {
+  description: string;
+  image?: string;
+  lang?: string;
+  noindex?: boolean;
+  schema?: Record<string, unknown> | Array<Record<string, unknown>>;
+  stylesheets?: string[];
+  title: string;
+  type?: "article" | "website";
+}
+
+const {
+  description,
+  image,
+  lang = "en",
+  noindex = false,
+  schema,
+  stylesheets = [],
+  title,
+  type,
+} = Astro.props;
+const siteSettings = await getSiteSettings(Astro.locals);
+
+const seo = resolvePageSeo(Astro.url.pathname, {
+  title,
+  description,
+  image: image || siteSettings.defaultOgImage,
+  noindex,
+  type,
+});
+const schemaItems = Array.isArray(schema) ? schema : schema ? [schema] : [];
+const defaultSchema =
+  seo.pathname === "/"
+    ? [buildOrganizationSchema(), buildWebSiteSchema()]
+    : [
+        buildWebPageSchema({
+          title: seo.title,
+          description: seo.description,
+          url: seo.canonicalUrl,
+          image: seo.image,
+        }),
+      ];
+const mergedSchema = [...defaultSchema, ...schemaItems];
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={seo.description} />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="robots" content={seo.robots} />
+    <link rel="canonical" href={seo.canonicalUrl} />
+    <meta property="og:site_name" content={siteSettings.siteName} />
+    <meta property="og:locale" content="en_NZ" />
+    <meta property="og:type" content={seo.type} />
+    <meta property="og:title" content={seo.title} />
+    <meta property="og:description" content={seo.description} />
+    <meta property="og:url" content={seo.canonicalUrl} />
+    <meta property="og:image" content={seo.image} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={seo.title} />
+    <meta name="twitter:description" content={seo.description} />
+    <meta name="twitter:image" content={seo.image} />
+    <title>{seo.title}</title>
+    {stylesheets.map((href) => <link rel="stylesheet" href={href} />)}
+    {
+      mergedSchema.length > 0 && (
+        <script
+          is:inline
+          type="application/ld+json"
+          set:html={JSON.stringify(mergedSchema.length === 1 ? mergedSchema[0] : mergedSchema)}
+        />
+      )
+    }
+  </head>
+  <body>
+    <SiteHeader navigation={siteSettings.navigation} />
+    <slot />
+    <SiteFooter footer={siteSettings.footer} />
+    <BookingModal booking={siteSettings.booking} />
+    <SiteScripts />
+  </body>
+</html>

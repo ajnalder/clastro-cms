@@ -1,0 +1,44 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { getCatalogProductBySlug } from "../../lib/repository";
+
+export const prerender = false;
+
+const slug = Astro.params.slug || "";
+const product = await getCatalogProductBySlug(Astro.locals, slug);
+
+if (!product) {
+  Astro.response.status = 404;
+}
+---
+
+<Layout
+  title={product?.metaTitle || product?.name || "Product Not Found"}
+  description={product?.metaDescription || product?.shortDescription || "The requested demo product could not be found."}
+  image={product?.heroImageUrl}
+  noindex={!product}
+>
+  <main class="page-shell">
+    {product ? (
+      <article class="product-detail">
+        <div>
+          <p class="eyebrow">{product.categoryLabel}</p>
+          <h1>{product.name}</h1>
+          <p>{product.overview || product.shortDescription}</p>
+          <dl class="detail-list">
+            <div><dt>Family</dt><dd>{product.familyName}</dd></div>
+            <div><dt>Type</dt><dd>{product.airconType}</dd></div>
+            <div><dt>Price</dt><dd>{product.priceLabel || (product.price ? `$${product.price}` : "Demo pricing")}</dd></div>
+          </dl>
+        </div>
+        {product.heroImageUrl && <img src={product.heroImageUrl} alt={product.heroImageAlt || ""} />}
+        <div class="rich-content" set:html={product.contentHtml} />
+      </article>
+    ) : (
+      <section class="content-band">
+        <h1>Product not found</h1>
+        <p>The requested demo product does not exist.</p>
+      </section>
+    )}
+  </main>
+</Layout>

@@ -1,0 +1,38 @@
+---
+import { DEFAULT_SITE_SETTINGS, type SiteSettings } from "../lib/defaults";
+
+interface Props {
+  currentPath?: string;
+  navigation?: SiteSettings["navigation"];
+}
+
+const {
+  currentPath = Astro.url.pathname,
+  navigation = DEFAULT_SITE_SETTINGS.navigation,
+} = Astro.props;
+---
+
+<header class="site-header" id="site-header">
+  <a class="site-brand" href="/" aria-label="Clastro Demo home">
+    <img src="/images/clastro-logo.svg" alt="Clastro CMS" />
+  </a>
+
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+
+  <nav class="site-nav" id="site-nav" data-site-nav>
+    {navigation.navLinks.map((item) => {
+      const active = item.link === "/" ? currentPath === "/" : currentPath.startsWith(item.link);
+      return (
+        <a href={item.link} class:list={[active && "is-active"]}>
+          {item.label}
+        </a>
+      );
+    })}
+  </nav>
+
+  <a class="site-header-cta" href={navigation.ctaButtonLink}>{navigation.ctaButtonText}</a>
+</header>

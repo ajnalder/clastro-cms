@@ -1,0 +1,36 @@
+---
+import { DEFAULT_SITE_SETTINGS, type SiteSettings } from "../lib/defaults";
+
+interface Props {
+  footer?: SiteSettings["footer"];
+}
+
+const { footer = DEFAULT_SITE_SETTINGS.footer } = Astro.props;
+---
+
+<footer class="site-footer">
+  <div class="site-footer-main">
+    <div>
+      <a class="site-footer-brand" href="/">
+        <img src="/images/clastro-logo.svg" alt="Clastro CMS" />
+      </a>
+      <p>{footer.tagline}</p>
+      <a class="site-footer-cta" href={footer.ctaLink}>{footer.ctaText}</a>
+    </div>
+
+    <div class="site-footer-columns">
+      {footer.columns.map((column) => (
+        <section>
+          <h2>{column.heading}</h2>
+          <div>
+            {column.links.map((link) => <a href={link.link}>{link.label}</a>)}
+          </div>
+        </section>
+      ))}
+    </div>
+  </div>
+  <div class="site-footer-base">
+    <span>Clastro CMS starter</span>
+    <span>Generic demo content for development and testing.</span>
+  </div>
+</footer>

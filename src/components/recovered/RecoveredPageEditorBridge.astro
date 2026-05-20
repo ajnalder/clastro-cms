@@ -1,0 +1,1229 @@
+<script>
+  const editorInitMessageType = "clastro:recovered-init";
+  const editorSelectMessageType = "clastro:recovered-select";
+  const editorFocusMessageType = "clastro:recovered-focus";
+  const editorDraftMessageType = "clastro:recovered-draft";
+  const editorSnapshotRequestType = "clastro:recovered-snapshot-request";
+  const editorSnapshotResponseType = "clastro:recovered-snapshot-response";
+  const editorBackgroundSaveType = "clastro:recovered-background-save";
+  const imageFrameRatios = {
+    landscape: "4 / 3",
+    portrait: "4 / 5",
+    square: "1 / 1",
+  } as const;
+  const params = new URLSearchParams(window.location.search);
+  const isEditorMode = params.get("editor") === "1" || params.has("editor");
+
+  if (isEditorMode && window.parent !== window) {
+    document.documentElement.dataset.visualEditor = "true";
+
+    const root = document.querySelector("[data-page-content-root]");
+    const currentSlug =
+      root instanceof HTMLElement
+        ? (root.dataset.pageSlug || "")
+        : window.location.pathname.replace(/^\/|\/$/g, "");
+
+    let isDirty = false;
+    let activeNode: HTMLElement | null = null;
+    let activeImageNode: HTMLElement | null = null;
+
+    const getCleanContentHtml = () => {
+      if (!(root instanceof HTMLElement)) return "";
+      const clone = root.cloneNode(true) as HTMLElement;
+
+      clone.querySelectorAll(".visual-editor-target, .visual-editor-image-block").forEach((el) => {
+        if (!(el instanceof HTMLElement)) return;
+        el.removeAttribute("data-recovered-editor-id");
+        el.removeAttribute("data-recovered-editor-label");
+        el.removeAttribute("data-recovered-image-id");
+        el.removeAttribute("data-recovered-image-label");
+        el.removeAttribute("contenteditable");
+        el.classList.remove(
+          "visual-editor-target",
+          "visual-editor-target--active",
+          "visual-editor-image-block",
+          "visual-editor-image-block--active",
+        );
+        if (!el.className.trim()) {
+          el.removeAttribute("class");
+        }
+      });
+
+      clone
+        .querySelectorAll("[data-recovered-image-placeholder], [data-recovered-image-removed]")
+        .forEach((el) => el.remove());
+
+      clone.querySelectorAll("[data-recovered-rich-group]").forEach((el) => {
+        if (!(el instanceof HTMLElement)) return;
+        el.replaceWith(...Array.from(el.childNodes));
+      });
+
+      return clone.innerHTML;
+    };
+
+    const isWithinEditorUi = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) return false;
+      return Boolean(
+        target.closest(
+          ".visual-editor-toolbar, .visual-editor-image-toolbar, .visual-editor-media-modal, .visual-editor-target, .visual-editor-image-block",
+        ),
+      );
+    };
+
+    const isWithinOverlayUi = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) return false;
+      return Boolean(
+        target.closest(
+          ".visual-editor-toolbar, .visual-editor-image-toolbar, .visual-editor-media-modal",
+        ),
+      );
+    };
+
+    window.parent.postMessage({ type: editorInitMessageType, slug: currentSlug }, "*");
+
+    document.addEventListener("click", (event) => {
+      const link = (event.target as Element)?.closest?.("a[href]");
+      if (!(link instanceof HTMLAnchorElement)) return;
+
+      const href = link.getAttribute("href") || "";
+      if (
+        !href ||
+        href.startsWith("#") ||
+        href.startsWith("mailto:") ||
+        href.startsWith("tel:") ||
+        href.startsWith("javascript:")
+      ) {
+        return;
+      }
+      if (href.startsWith("http") && !href.startsWith(window.location.origin)) return;
+      if (isWithinOverlayUi(event.target)) return;
+      if (link.closest(".visual-editor-target[contenteditable='true']")) return;
+
+      event.preventDefault();
+      const url = new URL(href, window.location.origin);
+      url.searchParams.set("editor", "1");
+
+      if (isDirty && root instanceof HTMLElement) {
+        window.parent.postMessage(
+          {
+            type: editorBackgroundSaveType,
+            slug: root.dataset.pageSlug || "",
+            contentHtml: getCleanContentHtml(),
+          },
+          "*",
+        );
+        isDirty = false;
+      }
+
+      window.location.href = url.toString();
+    });
+
+    if (root instanceof HTMLElement) {
+      const blockSelector = "h1, h2, h3, h4, h5, h6, p, ul, ol, li, blockquote, figcaption";
+      const groupableBlockSelector = "h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figcaption";
+      const candidateSelector = `[data-recovered-rich-group], ${blockSelector}, a, button, span`;
+      const inlineTagNames = new Set([
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "a",
+        "button",
+        "span",
+        "figcaption",
+      ]);
+
+      const hasMeaningfulText = (element: Element) =>
+        (element.textContent || "").replace(/\s+/g, " ").trim().length > 0;
+
+      const hasNestedBlock = (element: Element) =>
+        Array.from(element.children).some(
+          (child) => child instanceof Element && child.matches(blockSelector),
+        );
+
+      const canBeRichTextGroup = (element: Element) => {
+        if (!(element instanceof HTMLElement)) return false;
+        if (element.matches("ul, ol")) return true;
+        return element.matches(groupableBlockSelector) && hasMeaningfulText(element);
+      };
+
+      const hasComplexEmbeddedContent = (element: Element) =>
+        Boolean(
+          element.querySelector(
+            "img, picture, video, iframe, form, table, [data-recovered-rich-group], .visual-editor-image-block",
+          ),
+        );
+
+      const buildRichTextGroups = () => {
+        const parentNodes = Array.from(root.querySelectorAll("div, article, section, aside, main"));
+
+        parentNodes.forEach((parent) => {
+          if (!(parent instanceof HTMLElement)) return;
+          if (parent.closest("[data-recovered-rich-group]")) return;
+          if (hasComplexEmbeddedContent(parent)) return;
+
+          const children = Array.from(parent.children);
+          let currentGroup: HTMLElement[] = [];
+
+          const flushGroup = () => {
+            if (currentGroup.length < 2) {
+              currentGroup = [];
+              return;
+            }
+
+            const wrapper = document.createElement("div");
+            wrapper.dataset.recoveredRichGroup = "true";
+            wrapper.className = "visual-editor-rich-group";
+
+            const firstChild = currentGroup[0];
+            parent.insertBefore(wrapper, firstChild);
+            currentGroup.forEach((child) => wrapper.appendChild(child));
+            currentGroup = [];
+          };
+
+          children.forEach((child) => {
+            if (!(child instanceof HTMLElement)) {
+              flushGroup();
+              return;
+            }
+
+            if (canBeRichTextGroup(child)) {
+              currentGroup.push(child);
+              return;
+            }
+
+            flushGroup();
+          });
+
+          flushGroup();
+        });
+      };
+
+      buildRichTextGroups();
+
+      const isNestedInsideTarget = (element: HTMLElement) => {
+        const richGroupParent = element.parentElement?.closest?.("[data-recovered-rich-group]");
+        if (richGroupParent && richGroupParent !== element) return true;
+
+        const parentTarget = element.parentElement?.closest?.(candidateSelector);
+        if (!parentTarget || parentTarget === element) return false;
+        if (parentTarget instanceof HTMLElement && hasNestedBlock(parentTarget)) return false;
+        return true;
+      };
+
+      const isEditableElement = (element: Element) => {
+        if (!(element instanceof HTMLElement)) return false;
+        if (isNestedInsideTarget(element) || !hasMeaningfulText(element)) return false;
+        if (element.closest("svg, script, style")) return false;
+        if (element.matches("[data-recovered-rich-group]")) return true;
+        if (element.matches("span")) return Boolean(element.className) && !hasNestedBlock(element);
+        if (element.matches("a, button")) return true;
+        return !hasNestedBlock(element);
+      };
+
+      const createLabel = (element: HTMLElement) => {
+        const explicit = element.dataset.editorLabel;
+        if (explicit) return explicit;
+        const text = (element.textContent || "").replace(/\s+/g, " ").trim();
+        const snippet = text.length > 36 ? `${text.slice(0, 36)}…` : text;
+        return `${element.tagName.toLowerCase()}: ${snippet || "text"}`;
+      };
+
+      const hasVisibleContent = (element: HTMLElement) => {
+        const text = (element.textContent || "").replace(/\u200B/g, "").replace(/\s+/g, " ").trim();
+        if (text.length > 0) return true;
+        return Boolean(element.querySelector("img, picture, video, iframe, svg, table"));
+      };
+
+      const updateEmptyState = (element: HTMLElement) => {
+        if (hasVisibleContent(element)) {
+          element.removeAttribute("data-recovered-empty");
+          return;
+        }
+
+        element.dataset.recoveredEmpty = "true";
+      };
+
+      const editorNodes = Array.from(root.querySelectorAll(candidateSelector)).filter(
+        isEditableElement,
+      ) as HTMLElement[];
+
+      const imageNodes = Array.from(root.querySelectorAll("img")).filter((node) => {
+        if (!(node instanceof HTMLElement)) return false;
+        if (node.closest("svg, script, style")) return false;
+        return !node.closest(".visual-editor-toolbar, .visual-editor-image-toolbar");
+      }) as HTMLImageElement[];
+
+      const toolbar = document.createElement("div");
+      toolbar.className = "visual-editor-toolbar";
+      toolbar.innerHTML = [
+        `<button type="button" data-cmd="bold" title="Bold"><strong>B</strong></button>`,
+        `<button type="button" data-cmd="italic" title="Italic"><em>I</em></button>`,
+        `<button type="button" data-cmd="underline" title="Underline"><span style="text-decoration:underline">U</span></button>`,
+        `<span class="visual-editor-toolbar-sep"></span>`,
+        `<button type="button" data-format="H1" title="Heading 1">H1</button>`,
+        `<button type="button" data-format="H2" title="Heading 2">H2</button>`,
+        `<button type="button" data-format="H3" title="Heading 3">H3</button>`,
+        `<span class="visual-editor-toolbar-sep"></span>`,
+        `<button type="button" data-cmd="insertUnorderedList" title="Bullet list">•</button>`,
+        `<button type="button" data-cmd="insertOrderedList" title="Numbered list">1.</button>`,
+        `<span class="visual-editor-toolbar-sep"></span>`,
+        `<button type="button" data-align="justifyLeft" title="Align left">L</button>`,
+        `<button type="button" data-align="justifyCenter" title="Align center">C</button>`,
+        `<button type="button" data-align="justifyRight" title="Align right">R</button>`,
+        `<span class="visual-editor-toolbar-sep"></span>`,
+        `<button type="button" data-action="link" title="Add link">Link</button>`,
+        `<button type="button" data-action="unlink" title="Remove link">Unlink</button>`,
+        `<span class="visual-editor-toolbar-sep"></span>`,
+        `<button type="button" data-cmd="undo" title="Undo">↶</button>`,
+        `<button type="button" data-cmd="redo" title="Redo">↷</button>`,
+      ].join("");
+      toolbar.style.display = "none";
+      document.body.appendChild(toolbar);
+
+      const imageToolbar = document.createElement("div");
+      imageToolbar.className = "visual-editor-image-toolbar";
+      imageToolbar.innerHTML = [
+        `<button type="button" data-image-action="replace">Replace Image</button>`,
+        `<div class="visual-editor-image-toolbar__frames">`,
+        `<button type="button" data-image-frame="landscape">Landscape</button>`,
+        `<button type="button" data-image-frame="portrait">Portrait</button>`,
+        `<button type="button" data-image-frame="square">Square</button>`,
+        `</div>`,
+        `<button type="button" class="visual-editor-image-toolbar__danger" data-image-action="remove">Remove</button>`,
+      ].join("");
+      imageToolbar.style.display = "none";
+      document.body.appendChild(imageToolbar);
+
+      const markDirty = () => {
+        isDirty = true;
+      };
+
+      const clearSelection = () => {
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+      };
+
+      const getCurrentLink = () => {
+        const selection = window.getSelection();
+        const anchorNode = selection?.anchorNode;
+        if (!anchorNode) return null;
+        const element =
+          anchorNode instanceof Element ? anchorNode : anchorNode.parentElement;
+        return element?.closest("a") ?? null;
+      };
+
+      const getCurrentFormat = () =>
+        String(document.queryCommandValue("formatBlock") || "")
+          .replace(/[<>]/g, "")
+          .toLowerCase();
+
+      const updateToolbarState = () => {
+        if (!activeNode) return;
+
+        const commandButtons: Array<[string, string]> = [
+          ["bold", "bold"],
+          ["italic", "italic"],
+          ["underline", "underline"],
+          ["insertUnorderedList", "insertUnorderedList"],
+          ["insertOrderedList", "insertOrderedList"],
+          ["justifyLeft", "justifyLeft"],
+          ["justifyCenter", "justifyCenter"],
+          ["justifyRight", "justifyRight"],
+        ];
+
+        commandButtons.forEach(([selector, command]) => {
+          const button = toolbar.querySelector(`[data-cmd="${selector}"], [data-align="${selector}"]`);
+          if (!(button instanceof HTMLElement)) return;
+          button.classList.toggle("active", document.queryCommandState(command));
+        });
+
+        const currentFormat = getCurrentFormat();
+        toolbar.querySelectorAll("[data-format]").forEach((button) => {
+          if (!(button instanceof HTMLElement)) return;
+          button.classList.toggle(
+            "active",
+            button.dataset.format?.toLowerCase() === currentFormat,
+          );
+        });
+
+        const linkButton = toolbar.querySelector('[data-action="link"]');
+        if (linkButton instanceof HTMLElement) {
+          linkButton.classList.toggle("active", Boolean(getCurrentLink()));
+        }
+      };
+
+      const positionToolbar = (node: HTMLElement) => {
+        const selection = window.getSelection();
+        const rangeRect =
+          selection && selection.rangeCount > 0 && !selection.isCollapsed
+            ? selection.getRangeAt(0).getBoundingClientRect()
+            : null;
+        const rect =
+          rangeRect && rangeRect.width > 0 && rangeRect.height > 0
+            ? rangeRect
+            : node.getBoundingClientRect();
+        const gap = 10;
+
+        toolbar.style.display = "flex";
+        const toolbarHeight = toolbar.offsetHeight || 42;
+        const toolbarWidth = toolbar.offsetWidth || 560;
+
+        let top = rect.top + window.scrollY - toolbarHeight - gap;
+        if (rect.top < toolbarHeight + gap) {
+          top = rect.bottom + window.scrollY + gap;
+        }
+
+        const desiredLeft = rect.left + window.scrollX;
+        const maxLeft = window.scrollX + window.innerWidth - toolbarWidth - 12;
+        const left = Math.max(window.scrollX + 12, Math.min(maxLeft, desiredLeft));
+
+        toolbar.style.top = `${top}px`;
+        toolbar.style.left = `${left}px`;
+      };
+
+      const deactivateImageNode = () => {
+        if (activeImageNode) {
+          activeImageNode.classList.remove("visual-editor-image-block--active");
+          activeImageNode = null;
+        }
+        imageToolbar.style.display = "none";
+      };
+
+      const deactivateNode = () => {
+        if (activeNode) {
+          activeNode.removeAttribute("contenteditable");
+          activeNode.classList.remove("visual-editor-target--active");
+          updateEmptyState(activeNode);
+          activeNode = null;
+        }
+        toolbar.style.display = "none";
+      };
+
+      const notifyParent = (node: HTMLElement | null) => {
+        if (!node) {
+          window.parent.postMessage(
+            { type: editorSelectMessageType, slug: root.dataset.pageSlug || "", editorId: null },
+            "*",
+          );
+          return;
+        }
+
+        const isImage = node.classList.contains("visual-editor-image-block");
+        window.parent.postMessage(
+          {
+            type: editorSelectMessageType,
+            slug: root.dataset.pageSlug || "",
+            editorId:
+              node.dataset.recoveredEditorId || node.dataset.recoveredImageId || "",
+            label:
+              node.dataset.recoveredEditorLabel || node.dataset.recoveredImageLabel || "",
+            tagName: isImage ? "img" : node.tagName.toLowerCase(),
+            html: isImage ? node.outerHTML : node.innerHTML,
+            href: node instanceof HTMLAnchorElement ? node.getAttribute("href") || "" : "",
+          },
+          "*",
+        );
+      };
+
+      const activateNode = (node: HTMLElement) => {
+        if (activeNode === node) {
+          positionToolbar(node);
+          updateToolbarState();
+          return;
+        }
+
+        deactivateImageNode();
+        deactivateNode();
+
+        activeNode = node;
+        node.classList.add("visual-editor-target--active");
+        node.contentEditable = "true";
+        node.focus();
+        updateEmptyState(node);
+        positionToolbar(node);
+        updateToolbarState();
+      };
+
+      const normaliseImageFrame = (value?: string | null) => {
+        if (value === "portrait" || value === "square") return value;
+        return "landscape";
+      };
+
+      const getImageFrame = (node: HTMLElement) =>
+        normaliseImageFrame(node.dataset.recoveredImageFrame || node.style.aspectRatio || "");
+
+      const applyImageFrame = (node: HTMLElement, frame: string) => {
+        const resolved = normaliseImageFrame(frame);
+        node.dataset.recoveredImageFrame = resolved;
+        node.style.aspectRatio = imageFrameRatios[resolved];
+        node.style.objectFit = "cover";
+        node.style.objectPosition = "center";
+        markDirty();
+        return resolved;
+      };
+
+      const positionImageToolbar = (node: HTMLElement) => {
+        const rect = node.getBoundingClientRect();
+        imageToolbar.style.display = "flex";
+        const toolbarHeight = imageToolbar.offsetHeight || 60;
+        const toolbarWidth = imageToolbar.offsetWidth || 420;
+        const top = Math.max(window.scrollY + 12, rect.top + window.scrollY + 16);
+        const centeredLeft = rect.left + window.scrollX + rect.width / 2 - toolbarWidth / 2;
+        const maxLeft = window.scrollX + window.innerWidth - toolbarWidth - 12;
+        const left = Math.max(window.scrollX + 12, Math.min(maxLeft, centeredLeft));
+        imageToolbar.style.top = `${top}px`;
+        imageToolbar.style.left = `${left}px`;
+
+        const currentFrame = getImageFrame(node);
+        imageToolbar.querySelectorAll("[data-image-frame]").forEach((button) => {
+          if (!(button instanceof HTMLElement)) return;
+          button.classList.toggle("active", button.dataset.imageFrame === currentFrame);
+        });
+      };
+
+      const activateImageNode = (node: HTMLElement) => {
+        deactivateNode();
+        deactivateImageNode();
+        clearSelection();
+        activeImageNode = node;
+        node.classList.add("visual-editor-image-block--active");
+        positionImageToolbar(node);
+      };
+
+      const openMediaPicker = async () => {
+        const targetNode = activeImageNode;
+        if (!targetNode) return;
+
+        const modal = document.createElement("div");
+        modal.className = "visual-editor-media-modal";
+        modal.innerHTML = `
+          <div class="visual-editor-media-modal__panel">
+            <div class="visual-editor-media-modal__header">
+              <div>
+                <div class="visual-editor-media-modal__eyebrow">Replace Image</div>
+                <h3>Choose a media item</h3>
+              </div>
+              <button type="button" data-media-close aria-label="Close media picker">×</button>
+            </div>
+            <div class="visual-editor-media-modal__actions">
+              <button type="button" data-media-upload>Upload new image</button>
+              <p>Or select an existing image from the media library.</p>
+            </div>
+            <div class="visual-editor-media-modal__grid">Loading media library…</div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+
+        const closeModal = () => modal.remove();
+        modal.querySelector("[data-media-close]")?.addEventListener("click", closeModal);
+        modal.addEventListener("click", (event) => {
+          if (event.target === modal) closeModal();
+        });
+
+        const setImageSource = (url: string, alt: string) => {
+          if (!targetNode.isConnected) return;
+          if (targetNode instanceof HTMLImageElement) {
+            targetNode.src = url;
+            if (alt) {
+              targetNode.alt = alt;
+            }
+            if (!targetNode.dataset.recoveredImageFrame) {
+              applyImageFrame(targetNode, "landscape");
+            }
+            activateImageNode(targetNode);
+            markDirty();
+            closeModal();
+            return;
+          }
+
+          if (targetNode.dataset.recoveredImagePlaceholder === "true") {
+            const img = document.createElement("img");
+            img.src = url;
+            img.alt = alt || "Page image";
+            img.dataset.recoveredImageId = targetNode.dataset.recoveredImageId || "";
+            img.dataset.recoveredImageLabel = targetNode.dataset.recoveredImageLabel || "image";
+            img.className = "visual-editor-image-block";
+            targetNode.replaceWith(img);
+            applyImageFrame(img, targetNode.dataset.recoveredImageFrame || "landscape");
+            bindImageNode(img, Number(img.dataset.recoveredImageId?.replace("recovered-image-", "")) || 0);
+            activateImageNode(img);
+            markDirty();
+            closeModal();
+          }
+        };
+
+        const uploadButton = modal.querySelector("[data-media-upload]");
+        uploadButton?.addEventListener("click", () => {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = "image/*";
+          input.addEventListener("change", async () => {
+            const file = input.files?.[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const response = await fetch("/api/media/upload", {
+              method: "POST",
+              body: formData,
+            });
+            if (!response.ok) return;
+            const result = await response.json();
+            setImageSource(
+              String(result.publicUrl || result.public_url || ""),
+              String(result.alt || ""),
+            );
+          });
+          input.click();
+        });
+
+        const grid = modal.querySelector(".visual-editor-media-modal__grid");
+        if (!(grid instanceof HTMLElement)) return;
+
+        try {
+          const response = await fetch("/api/media");
+          if (!response.ok) {
+            throw new Error("Failed to load media.");
+          }
+          const mediaItems = (await response.json()) as Array<{
+            alt?: string;
+            filename?: string;
+            publicUrl?: string;
+            public_url?: string;
+          }>;
+
+          if (!mediaItems.length) {
+            grid.textContent = "No media items found yet.";
+            return;
+          }
+
+          grid.innerHTML = mediaItems
+            .map((item) => {
+              const url = item.publicUrl || item.public_url || "";
+              const label = item.filename || "media item";
+              const alt = item.alt || "";
+              return `
+                <button
+                  type="button"
+                  class="visual-editor-media-modal__item"
+                  data-media-url="${url.replace(/"/g, "&quot;")}"
+                  data-media-alt="${alt.replace(/"/g, "&quot;")}"
+                >
+                  <img src="${url}" alt="${alt || label}" loading="lazy" />
+                  <span>${label}</span>
+                </button>
+              `;
+            })
+            .join("");
+
+          grid.querySelectorAll("[data-media-url]").forEach((button) => {
+            button.addEventListener("click", () => {
+              if (!(button instanceof HTMLElement)) return;
+              setImageSource(
+                button.dataset.mediaUrl || "",
+                button.dataset.mediaAlt || "",
+              );
+            });
+          });
+        } catch {
+          grid.textContent = "Unable to load the media library right now.";
+        }
+      };
+
+      const removeImageNode = () => {
+        if (!activeImageNode) return;
+        const placeholder = document.createElement("div");
+        placeholder.dataset.recoveredImagePlaceholder = "true";
+        placeholder.dataset.recoveredImageId =
+          activeImageNode.dataset.recoveredImageId || "";
+        placeholder.dataset.recoveredImageLabel =
+          activeImageNode.dataset.recoveredImageLabel || "image";
+        placeholder.dataset.recoveredImageFrame =
+          activeImageNode.dataset.recoveredImageFrame || "landscape";
+        placeholder.className = "visual-editor-image-block visual-editor-image-placeholder";
+        placeholder.innerHTML = `<span>Image removed</span><small>Use Replace Image to add another one.</small>`;
+
+        activeImageNode.replaceWith(placeholder);
+        bindImageNode(placeholder, Number(placeholder.dataset.recoveredImageId?.replace("recovered-image-", "")) || 0);
+        activateImageNode(placeholder);
+        markDirty();
+      };
+
+      toolbar.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        if (!activeNode) return;
+
+        const button = (event.target as Element)?.closest?.("button");
+        if (!(button instanceof HTMLElement)) return;
+
+        if (button.dataset.action === "link") {
+          const nextHref = window.prompt(
+            "Enter a URL for this link",
+            getCurrentLink()?.getAttribute("href") || "https://",
+          );
+          if (nextHref) {
+            document.execCommand("createLink", false, nextHref);
+          }
+        } else if (button.dataset.action === "unlink") {
+          document.execCommand("unlink");
+        } else if (button.dataset.format) {
+          document.execCommand("formatBlock", false, button.dataset.format);
+        } else if (button.dataset.align) {
+          document.execCommand(button.dataset.align);
+        } else if (button.dataset.cmd) {
+          document.execCommand(button.dataset.cmd);
+        }
+
+        positionToolbar(activeNode);
+        updateToolbarState();
+        markDirty();
+      });
+
+      imageToolbar.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        const button = (event.target as Element)?.closest?.("button");
+        if (!(button instanceof HTMLElement) || !activeImageNode) return;
+
+        if (button.dataset.imageAction === "replace") {
+          void openMediaPicker();
+          return;
+        }
+
+        if (button.dataset.imageAction === "remove") {
+          removeImageNode();
+          return;
+        }
+
+        if (button.dataset.imageFrame) {
+          applyImageFrame(activeImageNode, button.dataset.imageFrame);
+          positionImageToolbar(activeImageNode);
+        }
+      });
+
+      const bindImageNode = (node: HTMLElement, index: number) => {
+        node.dataset.recoveredImageId ||= `recovered-image-${index}`;
+        node.dataset.recoveredImageLabel ||= `image ${index + 1}`;
+        node.classList.add("visual-editor-image-block");
+
+        if (
+          node instanceof HTMLImageElement &&
+          !node.dataset.recoveredImageFrame &&
+          !node.style.aspectRatio
+        ) {
+          applyImageFrame(node, "landscape");
+        }
+
+        node.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          activateImageNode(node);
+          notifyParent(node);
+        });
+      };
+
+      editorNodes.forEach((node, index) => {
+        node.dataset.recoveredEditorId = `recovered-${index}`;
+        node.dataset.recoveredEditorLabel = createLabel(node);
+        node.classList.add("visual-editor-target");
+        updateEmptyState(node);
+
+        node.addEventListener("click", (event) => {
+          if (activeNode === node) {
+            event.stopPropagation();
+            if (node instanceof HTMLAnchorElement) event.preventDefault();
+            return;
+          }
+
+          event.preventDefault();
+          event.stopPropagation();
+          activateNode(node);
+          notifyParent(node);
+        });
+
+        node.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            deactivateNode();
+            notifyParent(null);
+            return;
+          }
+
+          if (event.key === "Enter" && inlineTagNames.has(node.tagName.toLowerCase())) {
+            event.preventDefault();
+            return;
+          }
+
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            document.execCommand("insertLineBreak");
+          }
+        });
+
+        node.addEventListener("keyup", () => {
+          updateEmptyState(node);
+          updateToolbarState();
+          if (activeNode === node) {
+            positionToolbar(node);
+          }
+        });
+        node.addEventListener("mouseup", () => {
+          requestAnimationFrame(() => {
+            updateToolbarState();
+            if (activeNode === node) {
+              positionToolbar(node);
+            }
+          });
+        });
+
+        node.addEventListener("paste", (event) => {
+          event.preventDefault();
+          const text = event.clipboardData?.getData("text/plain") || "";
+          document.execCommand("insertText", false, text);
+          updateEmptyState(node);
+        });
+
+        node.addEventListener("input", () => {
+          updateEmptyState(node);
+          markDirty();
+        });
+      });
+
+      imageNodes.forEach((node, index) => bindImageNode(node, index));
+
+      document.addEventListener("selectionchange", () => {
+        if (!activeNode) return;
+        requestAnimationFrame(() => {
+          if (!activeNode) return;
+          positionToolbar(activeNode);
+          updateToolbarState();
+        });
+      });
+
+      document.addEventListener("scroll", () => {
+        if (activeNode) {
+          positionToolbar(activeNode);
+        }
+        if (activeImageNode) {
+          positionImageToolbar(activeImageNode);
+        }
+      }, true);
+
+      window.addEventListener("resize", () => {
+        if (activeNode) {
+          positionToolbar(activeNode);
+        }
+        if (activeImageNode) {
+          positionImageToolbar(activeImageNode);
+        }
+      });
+
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Node)) return;
+        if (activeNode && (activeNode.contains(target) || toolbar.contains(target))) return;
+        if (
+          activeImageNode &&
+          (activeImageNode.contains(target) ||
+            target === activeImageNode ||
+            imageToolbar.contains(target) ||
+            target instanceof Element && target.closest(".visual-editor-media-modal"))
+        ) {
+          return;
+        }
+
+        deactivateNode();
+        deactivateImageNode();
+        notifyParent(null);
+      });
+
+      window.addEventListener("message", (event) => {
+        if (event.data?.type === editorFocusMessageType) {
+          const editorId = String(event.data?.editorId || "");
+          const editorNode =
+            document.querySelector(`[data-recovered-editor-id="${editorId}"]`) ||
+            document.querySelector(`[data-recovered-image-id="${editorId}"]`);
+          if (!(editorNode instanceof HTMLElement)) return;
+
+          if (editorNode.classList.contains("visual-editor-image-block")) {
+            activateImageNode(editorNode);
+          } else {
+            activateNode(editorNode);
+          }
+
+          notifyParent(editorNode);
+          editorNode.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+
+        if (event.data?.type === editorDraftMessageType) {
+          const editorId = String(event.data?.editorId || "");
+          const editorNode = document.querySelector(`[data-recovered-editor-id="${editorId}"]`);
+          if (!(editorNode instanceof HTMLElement)) return;
+
+          if (editorNode instanceof HTMLAnchorElement && event.data?.href !== undefined) {
+            editorNode.setAttribute("href", event.data.href || "#");
+            markDirty();
+          }
+        }
+
+        if (event.data?.type === editorSnapshotRequestType) {
+          isDirty = false;
+          window.parent.postMessage(
+            {
+              type: editorSnapshotResponseType,
+              requestId: event.data?.requestId,
+              slug: root.dataset.pageSlug || "",
+              contentHtml: getCleanContentHtml(),
+            },
+            "*",
+          );
+        }
+      });
+    }
+  }
+</script>
+
+<style is:global>
+  html[data-visual-editor="true"] [data-page-content-root] {
+    isolation: isolate;
+  }
+
+  html[data-visual-editor="true"] .visual-editor-target,
+  html[data-visual-editor="true"] .visual-editor-image-block {
+    cursor: pointer;
+    outline: 2px solid transparent;
+    outline-offset: 4px;
+    position: relative;
+    transition:
+      outline-color 140ms ease,
+      box-shadow 140ms ease,
+      background-color 140ms ease;
+  }
+
+  html[data-visual-editor="true"] .visual-editor-target:hover {
+    outline-color: rgba(200, 234, 47, 0.7);
+  }
+
+  html[data-visual-editor="true"] .visual-editor-image-block:hover {
+    outline-color: rgba(255, 139, 44, 0.7);
+  }
+
+  html[data-visual-editor="true"] .visual-editor-target::after,
+  html[data-visual-editor="true"] .visual-editor-image-block::after {
+    background: rgba(17, 19, 21, 0.92);
+    border-radius: 999px;
+    color: #f6f8fa;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 0.7rem;
+    left: 0;
+    letter-spacing: 0.06em;
+    opacity: 0;
+    padding: 0.35rem 0.6rem;
+    pointer-events: none;
+    position: absolute;
+    text-transform: uppercase;
+    top: -1.75rem;
+    transform: translateY(4px);
+    transition:
+      opacity 140ms ease,
+      transform 140ms ease;
+    white-space: nowrap;
+    z-index: 20;
+  }
+
+  html[data-visual-editor="true"] .visual-editor-target::after {
+    content: attr(data-recovered-editor-label);
+  }
+
+  html[data-visual-editor="true"] .visual-editor-image-block::after {
+    content: attr(data-recovered-image-label);
+  }
+
+  html[data-visual-editor="true"] .visual-editor-target:hover::after,
+  html[data-visual-editor="true"] .visual-editor-image-block:hover::after,
+  html[data-visual-editor="true"] .visual-editor-image-block--active::after {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  html[data-visual-editor="true"] .visual-editor-target[contenteditable="true"]::after {
+    display: none;
+  }
+
+  html[data-visual-editor="true"] .visual-editor-target--active {
+    box-shadow: 0 0 0 4px rgba(200, 234, 47, 0.22);
+    outline-color: rgba(200, 234, 47, 0.95);
+  }
+
+  html[data-visual-editor="true"] .visual-editor-target[data-recovered-empty="true"] {
+    min-height: 2.8rem;
+  }
+
+  html[data-visual-editor="true"] .visual-editor-target[data-recovered-empty="true"]::before {
+    color: rgba(89, 98, 107, 0.92);
+    content: "Click to add content";
+    display: block;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 0.82rem;
+    font-style: italic;
+    line-height: 1.5;
+    padding: 0.72rem 0.8rem;
+    pointer-events: none;
+  }
+
+  html[data-visual-editor="true"] .visual-editor-image-block--active {
+    box-shadow: 0 0 0 4px rgba(255, 139, 44, 0.22);
+    outline-color: rgba(255, 139, 44, 0.95);
+  }
+
+  html[data-visual-editor="true"] .visual-editor-target[contenteditable="true"] {
+    cursor: text;
+  }
+
+  html[data-visual-editor="true"] .visual-editor-image-placeholder {
+    align-items: center;
+    background: rgba(255, 139, 44, 0.08);
+    border: 1px dashed rgba(255, 139, 44, 0.5);
+    border-radius: 18px;
+    display: grid;
+    gap: 0.25rem;
+    min-height: 180px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+
+  html[data-visual-editor="true"] .visual-editor-image-placeholder span {
+    color: #111315;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  html[data-visual-editor="true"] .visual-editor-image-placeholder small {
+    color: #59626b;
+    font-size: 0.82rem;
+  }
+
+  .visual-editor-toolbar,
+  .visual-editor-image-toolbar {
+    align-items: center;
+    background: rgba(15, 16, 21, 0.96);
+    border: 1px solid rgba(58, 63, 70, 0.9);
+    border-radius: 12px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+    display: flex;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    gap: 4px;
+    padding: 4px;
+    position: absolute;
+    z-index: 9999;
+  }
+
+  .visual-editor-toolbar {
+    flex-wrap: wrap;
+    max-width: min(96vw, 760px);
+  }
+
+  .visual-editor-toolbar button,
+  .visual-editor-image-toolbar button {
+    align-items: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: #c0c8d0;
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 0.8rem;
+    font-weight: 700;
+    height: 32px;
+    justify-content: center;
+    min-width: 32px;
+    padding: 0 0.7rem;
+    text-transform: uppercase;
+    transition:
+      background-color 100ms ease,
+      border-color 100ms ease,
+      color 100ms ease;
+  }
+
+  .visual-editor-toolbar button:hover,
+  .visual-editor-image-toolbar button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+  }
+
+  .visual-editor-toolbar button.active,
+  .visual-editor-image-toolbar button.active {
+    background: rgba(200, 234, 47, 0.14);
+    border-color: rgba(200, 234, 47, 0.4);
+    color: #c8ea2f;
+  }
+
+  .visual-editor-toolbar-sep {
+    background: rgba(255, 255, 255, 0.12);
+    height: 18px;
+    margin: 0 2px;
+    width: 1px;
+  }
+
+  .visual-editor-image-toolbar {
+    gap: 0.5rem;
+  }
+
+  .visual-editor-image-toolbar__frames {
+    display: inline-flex;
+    gap: 0.35rem;
+  }
+
+  .visual-editor-image-toolbar__danger {
+    color: #ff8b8b !important;
+  }
+
+  .visual-editor-media-modal {
+    align-items: center;
+    backdrop-filter: blur(8px);
+    background: rgba(15, 16, 21, 0.6);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: 1.5rem;
+    position: fixed;
+    z-index: 10010;
+  }
+
+  .visual-editor-media-modal__panel {
+    background: #fff;
+    border-radius: 24px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.24);
+    display: grid;
+    max-height: min(88vh, 760px);
+    max-width: min(900px, 100%);
+    overflow: hidden;
+    width: min(900px, 100%);
+  }
+
+  .visual-editor-media-modal__header,
+  .visual-editor-media-modal__actions {
+    align-items: center;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    padding: 1.15rem 1.4rem;
+  }
+
+  .visual-editor-media-modal__header {
+    border-bottom: 1px solid #e7eaee;
+  }
+
+  .visual-editor-media-modal__header h3 {
+    color: #111315;
+    font-size: 1.15rem;
+    margin: 0.2rem 0 0;
+  }
+
+  .visual-editor-media-modal__header button {
+    background: #fff;
+    border: 1px solid #d9dee4;
+    border-radius: 999px;
+    color: #111315;
+    cursor: pointer;
+    font-size: 1.5rem;
+    height: 40px;
+    width: 40px;
+  }
+
+  .visual-editor-media-modal__eyebrow {
+    color: #ff8b2c;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .visual-editor-media-modal__actions {
+    border-bottom: 1px solid #e7eaee;
+  }
+
+  .visual-editor-media-modal__actions p {
+    color: #56606a;
+    font-size: 0.92rem;
+    margin: 0;
+  }
+
+  .visual-editor-media-modal__actions button {
+    background: #c8ea2f;
+    border: 0;
+    border-radius: 999px;
+    color: #111315;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    padding: 0.9rem 1.2rem;
+    text-transform: uppercase;
+  }
+
+  .visual-editor-media-modal__grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    overflow: auto;
+    padding: 1.4rem;
+  }
+
+  .visual-editor-media-modal__item {
+    background: #fff;
+    border: 1px solid #dde3ea;
+    border-radius: 18px;
+    color: #111315;
+    cursor: pointer;
+    display: grid;
+    gap: 0.7rem;
+    overflow: hidden;
+    padding: 0;
+    text-align: left;
+  }
+
+  .visual-editor-media-modal__item img {
+    aspect-ratio: 4 / 3;
+    display: block;
+    object-fit: cover;
+    width: 100%;
+  }
+
+  .visual-editor-media-modal__item span {
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.35;
+    padding: 0 0.9rem 0.9rem;
+    word-break: break-word;
+  }
+
+  @media (max-width: 720px) {
+    .visual-editor-toolbar,
+    .visual-editor-image-toolbar {
+      max-width: calc(100vw - 24px);
+    }
+
+    .visual-editor-image-toolbar {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .visual-editor-image-toolbar__frames {
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .visual-editor-media-modal {
+      padding: 0.75rem;
+    }
+
+    .visual-editor-media-modal__header,
+    .visual-editor-media-modal__actions {
+      align-items: start;
+      flex-direction: column;
+    }
+  }
+</style>

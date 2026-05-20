@@ -1,0 +1,26 @@
+---
+import Layout from "../layouts/Layout.astro";
+import RecoveredPage from "../layouts/RecoveredPage.astro";
+import { getPageBySlug } from "../lib/repository";
+
+const cmsPage = await getPageBySlug(Astro.locals, "services");
+---
+
+{cmsPage ? (
+  <RecoveredPage {...cmsPage} stylesheets={cmsPage.stylesheets} contentHtml={cmsPage.contentHtml} />
+) : (
+  <Layout title="Services | Clastro Demo" description="Generic service content used to test editable marketing pages.">
+    <main class="page-shell">
+      <section class="content-band">
+        <p class="eyebrow">Services</p>
+        <h1>Dummy service content for page editing tests.</h1>
+        <p>Use this page to verify rich text groups, links, CTA buttons, and reusable page sections.</p>
+      </section>
+      <section class="feature-grid">
+        <article><h2>Content strategy</h2><p>Placeholder service content that can be edited through the live page editor.</p></article>
+        <article><h2>Implementation</h2><p>Dummy copy for checking structured sections, headings, and calls to action.</p></article>
+        <article><h2>Ongoing support</h2><p>A neutral service card for proving repeatable layouts before a client build.</p></article>
+      </section>
+    </main>
+  </Layout>
+)}

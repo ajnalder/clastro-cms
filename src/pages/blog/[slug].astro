@@ -1,0 +1,56 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { getPostBySlug, listPosts } from "../../lib/repository";
+
+export const prerender = false;
+
+const slug = Astro.params.slug || "";
+const post = await getPostBySlug(Astro.locals, slug);
+const relatedPosts = post
+  ? (await listPosts(Astro.locals)).filter((entry) => entry.slug !== post.slug).slice(0, 3)
+  : [];
+
+if (!post) {
+  Astro.response.status = 404;
+}
+---
+
+<Layout
+  title={post?.seoTitle || post?.title || "Article Not Found"}
+  description={post?.seoDescription || post?.excerpt || "The requested article could not be found."}
+  image={post?.coverImageUrl}
+  type="article"
+  noindex={!post}
+>
+  <main class="page-shell">
+    {post ? (
+      <>
+        <article class="article-shell">
+          <p class="eyebrow">{post.primaryCategory}</p>
+          <h1>{post.title}</h1>
+          <p class="article-meta">{post.publishedAt} - {post.readTime || "Demo read"}</p>
+          {post.coverImageUrl && <img src={post.coverImageUrl} alt={post.coverImageAlt || ""} />}
+          <div class="rich-content" set:html={post.contentHtml} />
+        </article>
+        {relatedPosts.length > 0 && (
+          <section class="related-section">
+            <h2>More demo posts</h2>
+            <div class="card-list">
+              {relatedPosts.map((entry) => (
+                <article>
+                  <h3><a href={`/blog/${entry.slug}`}>{entry.title}</a></h3>
+                  <p>{entry.excerpt}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+      </>
+    ) : (
+      <section class="content-band">
+        <h1>Article not found</h1>
+        <p>The requested demo article does not exist.</p>
+      </section>
+    )}
+  </main>
+</Layout>

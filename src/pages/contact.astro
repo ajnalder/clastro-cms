@@ -1,0 +1,27 @@
+---
+import Layout from "../layouts/Layout.astro";
+import RecoveredPage from "../layouts/RecoveredPage.astro";
+import { getPageBySlug } from "../lib/repository";
+
+const cmsPage = await getPageBySlug(Astro.locals, "contact");
+---
+
+{cmsPage ? (
+  <RecoveredPage {...cmsPage} stylesheets={cmsPage.stylesheets} contentHtml={cmsPage.contentHtml} />
+) : (
+  <Layout title="Contact | Clastro Demo" description="A dummy contact page for the Clastro CMS starter.">
+    <main class="page-shell">
+      <section class="content-band">
+        <p class="eyebrow">Contact</p>
+        <h1>Dummy contact page.</h1>
+        <p>This page exists to test navigation, buttons, forms, and editable static content.</p>
+        <form class="demo-form">
+          <label><span>Name</span><input name="name" placeholder="Jane Example" /></label>
+          <label><span>Email</span><input name="email" type="email" placeholder="jane@example.com" /></label>
+          <label><span>Message</span><textarea name="message" placeholder="This is a demo form."></textarea></label>
+          <button class="button button-primary" type="button">Demo Submit</button>
+        </form>
+      </section>
+    </main>
+  </Layout>
+)}

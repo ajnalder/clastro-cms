@@ -1,0 +1,32 @@
+---
+import RecoveredPageEditorBridge from "../components/recovered/RecoveredPageEditorBridge.astro";
+import SiteLayout from "./SiteLayout.astro";
+
+interface Props {
+  contentHtml: string;
+  description: string;
+  lang?: string;
+  slug?: string;
+  stylesheets: string[];
+  title: string;
+}
+
+const {
+  contentHtml,
+  description,
+  lang = "en",
+  slug = "",
+  stylesheets,
+  title,
+} = Astro.props;
+---
+
+<SiteLayout
+  lang={lang}
+  title={title}
+  description={description}
+  stylesheets={stylesheets}
+>
+  <div data-page-content-root data-page-slug={slug} style="display: contents;" set:html={contentHtml} />
+  <RecoveredPageEditorBridge />
+</SiteLayout>

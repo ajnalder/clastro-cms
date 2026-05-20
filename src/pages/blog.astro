@@ -1,0 +1,33 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { listPosts } from "../lib/repository";
+
+const posts = await listPosts(Astro.locals);
+---
+
+<Layout title="Blog | Clastro Demo" description="Demo articles managed through the Clastro CMS.">
+  <main class="page-shell">
+    <section class="content-band">
+      <p class="eyebrow">Blog</p>
+      <h1>Demo articles.</h1>
+      <p>Use these records to test blog management, rich text, cover images, categories, SEO, and publishing states.</p>
+    </section>
+
+    <section class="card-list">
+      {posts.length > 0 ? posts.map((post) => (
+        <article>
+          {post.coverImageUrl && <img src={post.coverImageUrl} alt={post.coverImageAlt || ""} />}
+          <p class="eyebrow">{post.primaryCategory}</p>
+          <h2><a href={`/blog/${post.slug}`}>{post.title}</a></h2>
+          <p>{post.excerpt}</p>
+          <a class="text-link" href={`/blog/${post.slug}`}>Read article</a>
+        </article>
+      )) : (
+        <article>
+          <h2>No demo posts yet</h2>
+          <p>Seed the database with `db/demo-seed.sql` or create a post in the admin.</p>
+        </article>
+      )}
+    </section>
+  </main>
+</Layout>

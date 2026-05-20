@@ -1,0 +1,27 @@
+---
+import { LiveEditorApp } from "../../components/admin/LiveEditorApp";
+import { getCurrentUser } from "../../lib/auth";
+
+const user = await getCurrentUser(Astro.request, Astro.locals);
+const initialSlug = (Astro.url.searchParams.get("page") || "").replace(/^\/+|\/+$/g, "");
+
+if (!user) {
+  return Astro.redirect("/admin/login");
+}
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edit Website | Clastro CMS</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <style>
+      body { margin: 0; }
+    </style>
+  </head>
+  <body>
+    <LiveEditorApp client:only="react" initialSlug={initialSlug} user={{ name: user.name, email: user.email }} />
+  </body>
+</html>

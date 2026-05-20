@@ -1,0 +1,27 @@
+<script is:inline type="module">
+  const toggle = document.querySelector("[data-nav-toggle]");
+  const nav = document.querySelector("[data-site-nav]");
+
+  toggle?.addEventListener("click", () => {
+    const expanded = toggle.getAttribute("aria-expanded") === "true";
+    toggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+    nav?.classList.toggle("is-open", !expanded);
+  });
+
+  document.addEventListener("click", (event) => {
+    const opener = event.target.closest?.("[data-booking-modal]");
+    const closer = event.target.closest?.("[data-booking-close]");
+    const modal = document.getElementById("booking-modal");
+
+    if (opener && modal) {
+      event.preventDefault();
+      modal.hidden = false;
+      modal.classList.add("is-open");
+    }
+
+    if (closer && modal) {
+      modal.classList.remove("is-open");
+      modal.hidden = true;
+    }
+  });
+</script>

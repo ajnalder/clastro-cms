@@ -1837,21 +1837,51 @@ export function AdminApp({ user }: { user: User }) {
     }
   }
 
-  async function uploadMedia(formData: FormData) {
+  async function uploadMedia(input: { alt: string; files: File[]; sourceUrl: string }) {
     setUploading(true)
     setStatus(null)
 
     try {
-      const response = await fetch('/api/media/upload', {
-        method: 'POST',
-        body: formData,
-      })
+      const files = input.files.filter((file) => file.size > 0)
+      const sourceUrl = input.sourceUrl.trim()
+      const altText = input.alt.trim()
 
-      if (!response.ok) {
-        throw new Error('Failed to upload media.')
+      if (!files.length && !sourceUrl) {
+        throw new Error('Choose one or more files, or enter a source URL.')
       }
 
-      setStatus({ kind: 'info', text: 'Media uploaded.' })
+      const uploadOne = async (formData: FormData) => {
+        const response = await fetch('/api/media/upload', {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to upload media.')
+        }
+      }
+
+      if (files.length) {
+        for (const file of files) {
+          const formData = new FormData()
+          formData.append('file', file)
+          if (altText) {
+            formData.append('alt', altText)
+          }
+          await uploadOne(formData)
+        }
+
+        setStatus({ kind: 'info', text: `Uploaded ${files.length} media file${files.length === 1 ? '' : 's'}.` })
+      } else {
+        const formData = new FormData()
+        formData.append('sourceUrl', sourceUrl)
+        if (altText) {
+          formData.append('alt', altText)
+        }
+        await uploadOne(formData)
+        setStatus({ kind: 'info', text: 'Media imported.' })
+      }
+
       await loadAll()
     } catch (error) {
       setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to upload media.' })
@@ -3955,14 +3985,22 @@ export function AdminApp({ user }: { user: User }) {
                   onSubmit={(event) => {
                     event.preventDefault()
                     const form = event.currentTarget
-                    void uploadMedia(new FormData(form))
-                    form.reset()
+                    const fileInput = form.elements.namedItem('file') as HTMLInputElement | null
+                    const sourceUrlInput = form.elements.namedItem('sourceUrl') as HTMLInputElement | null
+                    const altInput = form.elements.namedItem('alt') as HTMLInputElement | null
+                    const files = Array.from(fileInput?.files || [])
+                    void uploadMedia({
+                      alt: altInput?.value || '',
+                      files,
+                      sourceUrl: sourceUrlInput?.value || '',
+                    }).then(() => form.reset())
                   }}
                 >
                   <div className={styles.grid}>
                     <label className={styles.field}>
-                      <span>Upload file</span>
-                      <input name="file" type="file" />
+                      <span>Upload files</span>
+                      <input multiple name="file" type="file" />
+                      <small className={styles.fieldHint}>Select one or more images/files from your computer.</small>
                     </label>
                     <label className={styles.field}>
                       <span>Or import from URL</span>

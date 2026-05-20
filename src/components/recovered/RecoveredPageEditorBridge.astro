@@ -982,6 +982,26 @@
     cursor: text;
   }
 
+  html[data-visual-editor="true"] .visual-editor-rich-group {
+    display: block;
+  }
+
+  html[data-visual-editor="true"] .hero-copy .visual-editor-rich-group > p:not(.eyebrow),
+  html[data-visual-editor="true"] .content-band .visual-editor-rich-group > p {
+    font-size: 1.05rem;
+    margin-top: 1.2rem;
+    max-width: 66ch;
+  }
+
+  html[data-visual-editor="true"] .visual-editor-rich-group > :where(h1, h2, h3, h4, h5, h6)
+    + :where(p, ul, ol, blockquote),
+  html[data-visual-editor="true"] .visual-editor-rich-group > p:not(.eyebrow)
+    + :where(p, ul, ol, blockquote),
+  html[data-visual-editor="true"] .visual-editor-rich-group > :where(ul, ol, blockquote)
+    + :where(p, h2, h3, h4) {
+    margin-top: 1rem;
+  }
+
   html[data-visual-editor="true"] .visual-editor-image-placeholder {
     align-items: center;
     background: rgba(255, 139, 44, 0.08);

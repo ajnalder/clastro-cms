@@ -263,6 +263,16 @@
   margin-bottom: 0.65rem;
 }
 
+.change-list {
+  color: var(--color-muted);
+  display: grid;
+  gap: 0.45rem;
+  line-height: 1.65;
+  list-style: disc;
+  margin: 1rem 0 0;
+  padding-left: 1.2rem;
+}
+
 .text-link {
   color: #007896;
   display: inline-flex;

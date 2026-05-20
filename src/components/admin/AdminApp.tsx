@@ -11,6 +11,7 @@ import {
   formatCmsRole,
   type CmsRole,
 } from '../../lib/role-policy'
+import { CLASTRO_VERSION } from '../../lib/version'
 import styles from './AdminApp.module.css'
 import { RichTextEditor } from './RichTextEditor'
 
@@ -2138,6 +2139,9 @@ export function AdminApp({ user }: { user: User }) {
         <aside className={styles.sidebar}>
           <div className={styles.brandBlock}>
             <img alt="Clastro CMS" className={styles.brandLogo} src="/images/clastro-logo.svg" />
+            <a className={styles.versionBadge} href="/changelog" target="_blank" rel="noreferrer">
+              v{CLASTRO_VERSION}
+            </a>
           </div>
 
           <nav className={styles.nav}>

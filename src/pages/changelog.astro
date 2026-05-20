@@ -1,0 +1,35 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { CLASTRO_CHANGELOG, CLASTRO_VERSION } from "../lib/version";
+---
+
+<Layout
+  title={`Changelog | Clastro CMS v${CLASTRO_VERSION}`}
+  description="Version history and release notes for the Clastro CMS starter."
+>
+  <main class="page-shell">
+    <section class="content-band">
+      <p class="eyebrow">Clastro Version</p>
+      <h1>Changelog</h1>
+      <p>
+        Current starter version: <strong>v{CLASTRO_VERSION}</strong>.
+        Use this page to track the core CMS features, fixes, and deployment improvements that can be ported into client sites.
+      </p>
+    </section>
+
+    <section class="card-list" aria-label="Clastro changelog entries">
+      {
+        CLASTRO_CHANGELOG.map((entry) => (
+          <article>
+            <p class="eyebrow">{entry.date}</p>
+            <h2>v{entry.version}</h2>
+            <p>{entry.summary}</p>
+            <ul class="change-list">
+              {entry.changes.map((change) => <li>{change}</li>)}
+            </ul>
+          </article>
+        ))
+      }
+    </section>
+  </main>
+</Layout>

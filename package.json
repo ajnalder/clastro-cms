@@ -1,6 +1,6 @@
 {
   "name": "clastro-cms-starter",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,7 +14,9 @@
     "admin:sql": "node ./scripts/create-admin-user-sql.mjs",
     "seo:audit": "node ./scripts/seo-audit.mjs",
     "hash:password": "node ./scripts/hash-password.mjs",
-    "test:roles": "node --experimental-strip-types --test tests/role-policy.test.mjs"
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "test:roles": "node --experimental-strip-types --test tests/role-policy.test.mjs",
+    "test:version": "node --experimental-strip-types --test tests/version.test.mjs"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^13.1.7",

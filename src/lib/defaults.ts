@@ -142,6 +142,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
           { label: "Admin", link: "/admin" },
           { label: "Live Editor", link: "/admin/edit" },
           { label: "Blog", link: "/blog" },
+          { label: "Changelog", link: "/changelog" },
         ],
       },
       {

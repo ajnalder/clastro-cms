@@ -51,6 +51,7 @@ const footer = {
         { label: "Admin", link: "/admin" },
         { label: "Live Editor", link: "/admin/edit" },
         { label: "Blog", link: "/blog" },
+        { label: "Changelog", link: "/changelog" },
       ],
     },
     {

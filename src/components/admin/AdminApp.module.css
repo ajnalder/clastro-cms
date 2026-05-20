@@ -51,6 +51,22 @@
   width: 100%;
 }
 
+.versionBadge {
+  background: rgba(0, 212, 255, 0.12);
+  border: 1px solid rgba(0, 212, 255, 0.35);
+  border-radius: 999px;
+  color: #8beeff;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  margin-top: 0.8rem;
+  padding: 0.38rem 0.58rem;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
 .userCard {
   background: #2b2d31;
   border: 1px solid #393d42;

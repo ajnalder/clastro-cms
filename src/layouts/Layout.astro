@@ -1,7 +1,18 @@
 ---
 import SiteLayout from "./SiteLayout.astro";
 
-const props = Astro.props;
+interface Props {
+  description: string;
+  image?: string;
+  lang?: string;
+  noindex?: boolean;
+  schema?: Record<string, unknown> | Array<Record<string, unknown>>;
+  stylesheets?: string[];
+  title: string;
+  type?: "article" | "website";
+}
+
+const props = Astro.props as Props;
 ---
 
 <SiteLayout {...props}>

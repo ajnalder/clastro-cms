@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS user_invitations (
   role TEXT NOT NULL DEFAULT 'editor',
   token_hash TEXT NOT NULL UNIQUE,
   invited_by_user_id TEXT NOT NULL,
+  show_ai_settings INTEGER NOT NULL DEFAULT 1,
+  show_ai_blog_tools INTEGER NOT NULL DEFAULT 1,
+  show_linkedin INTEGER NOT NULL DEFAULT 1,
   expires_at TEXT NOT NULL,
   accepted_at TEXT,
   revoked_at TEXT,
@@ -28,7 +31,12 @@ CREATE TABLE IF NOT EXISTS site_settings (
   id TEXT PRIMARY KEY DEFAULT 'site',
   site_name TEXT NOT NULL,
   site_url TEXT NOT NULL,
+  favicon_url TEXT,
+  apple_touch_icon_url TEXT,
   default_og_image TEXT,
+  social_share_title TEXT,
+  social_share_description TEXT,
+  theme_color TEXT,
   navigation_json TEXT NOT NULL,
   footer_json TEXT NOT NULL,
   booking_json TEXT NOT NULL,
@@ -108,6 +116,7 @@ CREATE TABLE IF NOT EXISTS posts (
   read_time TEXT,
   author_name TEXT NOT NULL DEFAULT 'Clastro Editor',
   author_role TEXT NOT NULL DEFAULT 'CMS Demo Author',
+  author_slug TEXT,
   primary_category TEXT NOT NULL,
   categories_json TEXT NOT NULL DEFAULT '[]',
   seo_title TEXT,
@@ -122,23 +131,14 @@ CREATE TABLE IF NOT EXISTS products (
   name TEXT NOT NULL,
   price REAL,
   price_label TEXT,
-  cooling_kw REAL NOT NULL DEFAULT 0,
-  heating_kw REAL NOT NULL DEFAULT 0,
   hero_image_url TEXT NOT NULL,
   hero_image_alt TEXT,
   short_description TEXT NOT NULL,
-  installation_cost TEXT NOT NULL,
   is_front_page INTEGER NOT NULL DEFAULT 0,
-  aircon_type TEXT NOT NULL,
   meta_title TEXT NOT NULL,
   meta_description TEXT NOT NULL,
-  family_code TEXT NOT NULL,
-  family_name TEXT NOT NULL,
   category_slug TEXT NOT NULL,
   category_label TEXT NOT NULL,
-  install_summary TEXT NOT NULL,
-  brochure_label TEXT NOT NULL,
-  brochure_href TEXT NOT NULL,
   overview TEXT NOT NULL,
   best_for_json TEXT NOT NULL DEFAULT '[]',
   spec_notes_json TEXT NOT NULL DEFAULT '[]',
@@ -161,6 +161,46 @@ CREATE TABLE IF NOT EXISTS media (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS email_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  resend_api_key_encrypted TEXT,
+  notification_email TEXT,
+  from_email TEXT,
+  from_name TEXT,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS form_submissions (
+  id TEXT PRIMARY KEY,
+  form_type TEXT NOT NULL DEFAULT 'contact',
+  name TEXT,
+  email TEXT,
+  subject TEXT,
+  message TEXT,
+  raw_data TEXT NOT NULL DEFAULT '{}',
+  source_path TEXT,
+  archived INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_form_submissions_archived ON form_submissions(archived);
+CREATE INDEX IF NOT EXISTS idx_form_submissions_form_type ON form_submissions(form_type);
+CREATE INDEX IF NOT EXISTS idx_form_submissions_created_at ON form_submissions(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS content_items (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  slug TEXT NOT NULL,
+  data TEXT NOT NULL DEFAULT '{}',
+  published INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(type, slug)
+);
+
+CREATE INDEX IF NOT EXISTS idx_content_items_type ON content_items(type);
+CREATE INDEX IF NOT EXISTS idx_content_items_type_published ON content_items(type, published);
 
 CREATE INDEX IF NOT EXISTS idx_pages_published ON pages(published);
 CREATE INDEX IF NOT EXISTS idx_posts_published ON posts(published);

@@ -11,7 +11,13 @@ import {
   formatCmsRole,
   type CmsRole,
 } from '../../lib/role-policy'
-import { CLASTRO_VERSION } from '../../lib/version'
+import { CONTENT_TYPE_DEFINITIONS, type ContentFieldDefinition, type ContentTypeIcon, slugify } from '../../lib/content-types'
+import { cn } from '../../lib/utils'
+import { CLASTRO_CHANGELOG, CLASTRO_VERSION } from '../../lib/version'
+import { Badge } from '../ui/badge'
+import { Button } from '../ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
+import { Separator } from '../ui/separator'
 import styles from './AdminApp.module.css'
 import { RichTextEditor } from './RichTextEditor'
 
@@ -83,6 +89,15 @@ function IconAi() {
   )
 }
 
+function IconMail() {
+  return (
+    <svg className={styles.navIcon} fill="none" viewBox="0 0 20 20">
+      <rect height="12" rx="2" stroke="currentColor" strokeWidth="1.5" width="15" x="2.5" y="4" />
+      <path d="m3 6 7 5 7-5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
 function IconLinkedIn() {
   return (
     <svg className={styles.navIcon} fill="none" viewBox="0 0 20 20">
@@ -105,7 +120,7 @@ function IconUsers() {
 
 function IconUser() {
   return (
-    <svg className={styles.statIcon} fill="none" viewBox="0 0 20 20">
+    <svg className={styles.navIcon} fill="none" viewBox="0 0 20 20">
       <circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5" />
       <path d="M3 18c0-3.3 3.1-6 7-6s7 2.7 7 6" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
     </svg>
@@ -138,6 +153,19 @@ function IconLifestyleBadge() {
   )
 }
 
+function IconDragDots() {
+  return (
+    <svg fill="currentColor" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="6" cy="4" r="1.5" />
+      <circle cx="10" cy="4" r="1.5" />
+      <circle cx="6" cy="8" r="1.5" />
+      <circle cx="10" cy="8" r="1.5" />
+      <circle cx="6" cy="12" r="1.5" />
+      <circle cx="10" cy="12" r="1.5" />
+    </svg>
+  )
+}
+
 function IconTrashSmall() {
   return (
     <svg fill="none" viewBox="0 0 16 16">
@@ -147,9 +175,76 @@ function IconTrashSmall() {
   )
 }
 
-const NAV_ICONS: Record<TabKey, ReactNode> = {
+function IconEditSmall() {
+  return (
+    <svg className={styles.userAccessActionIcon} fill="none" viewBox="0 0 16 16">
+      <path d="M9.8 2.9l3.3 3.3-7.1 7.1H2.8V10z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.4" />
+      <path d="M8.3 4.4l3.3 3.3" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
+    </svg>
+  )
+}
+
+function IconTag() {
+  return (
+    <svg className={styles.navIcon} fill="none" viewBox="0 0 20 20">
+      <path d="M3 9.5V4a1 1 0 0 1 1-1h5.5a1 1 0 0 1 .7.3l6.4 6.5a1 1 0 0 1 0 1.4l-5.4 5.4a1 1 0 0 1-1.4 0L3.3 10.2A1 1 0 0 1 3 9.5Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" />
+      <circle cx="6.7" cy="6.7" r="1.1" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+function IconPeople() {
+  return (
+    <svg className={styles.navIcon} fill="none" viewBox="0 0 20 20">
+      <circle cx="7" cy="8" r="2.4" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="13.6" cy="7.2" r="1.9" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M2.8 16c0-2.6 2.2-4.7 4.9-4.7s4.9 2.1 4.9 4.7" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+      <path d="M13.5 11.6c2.2.2 3.9 1.9 3.9 4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+function IconPin() {
+  return (
+    <svg className={styles.navIcon} fill="none" viewBox="0 0 20 20">
+      <path d="M10 17.5s5.5-5 5.5-9.2a5.5 5.5 0 0 0-11 0c0 4.2 5.5 9.2 5.5 9.2Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" />
+      <circle cx="10" cy="8.2" r="1.8" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+function IconBriefcase() {
+  return (
+    <svg className={styles.navIcon} fill="none" viewBox="0 0 20 20">
+      <rect height="11" rx="2" stroke="currentColor" strokeWidth="1.5" width="14" x="3" y="6" />
+      <path d="M7 6V4.5A1.5 1.5 0 0 1 8.5 3h3A1.5 1.5 0 0 1 13 4.5V6" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+      <path d="M3 10h14" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+function IconDocument() {
+  return (
+    <svg className={styles.navIcon} fill="none" viewBox="0 0 20 20">
+      <path d="M5 3h7l4 4v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" />
+      <path d="M12 3v4h4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+const CONTENT_TYPE_ICON_MAP: Record<ContentTypeIcon, () => ReactNode> = {
+  briefcase: () => <IconBriefcase />,
+  document: () => <IconDocument />,
+  people: () => <IconPeople />,
+  pin: () => <IconPin />,
+  star: () => <IconStarBadge />,
+  tag: () => <IconTag />,
+}
+
+const STATIC_NAV_ICONS: Record<StaticTabKey, ReactNode> = {
   ai: <IconAi />,
   dashboard: <IconDashboard />,
+  email: <IconMail />,
   linkedin: <IconLinkedIn />,
   pages: <IconPages />,
   posts: <IconPosts />,
@@ -157,6 +252,15 @@ const NAV_ICONS: Record<TabKey, ReactNode> = {
   media: <IconMedia />,
   settings: <IconSettings />,
   users: <IconUsers />,
+}
+
+function getNavIcon(tab: TabKey): ReactNode {
+  if (isContentItemTab(tab)) {
+    const typeSlug = contentTypeSlugFromTab(tab)
+    const def = CONTENT_TYPE_DEFINITIONS.find((entry) => entry.slug === typeSlug)
+    return def ? CONTENT_TYPE_ICON_MAP[def.icon]() : <IconDocument />
+  }
+  return STATIC_NAV_ICONS[tab as StaticTabKey]
 }
 
 type User = {
@@ -169,14 +273,19 @@ type User = {
 type UserRole = CmsRole
 
 type Settings = {
+  appleTouchIconUrl: string
   booking: unknown
   contactEmail: string
   contactPhone: string
   defaultOgImage: string
+  faviconUrl: string
   footer: unknown
   navigation: unknown
+  socialShareDescription: string
+  socialShareTitle: string
   siteName: string
   siteUrl: string
+  themeColor: string
 }
 
 type AiSettings = {
@@ -245,6 +354,7 @@ type PageRecord = {
 type PostRecord = {
   authorName: string
   authorRole: string
+  authorSlug?: string
   categories: Array<{ label: string }>
   contentHtml: string
   coverImageAlt?: string
@@ -262,21 +372,12 @@ type PostRecord = {
 }
 
 type ProductRecord = {
-  airconType: string
   bestFor: string[]
-  brochureHref: string
-  brochureLabel: string
   categoryLabel: string
   categorySlug: string
   contentHtml: string
-  coolingKw: number
-  familyCode: string
-  familyName: string
   heroImageAlt?: string
   heroImageUrl: string
-  heatingKw: number
-  installSummary: string
-  installationCost: string
   isFrontPage: boolean
   metaDescription: string
   metaTitle: string
@@ -301,22 +402,458 @@ type ProductImageRecord = {
 type MediaRecord = {
   alt?: string
   filename: string
+  id: string
   publicUrl: string
   sourceUrl?: string
 }
 
-type FeatureFlags = {
-  showAiDashboard: boolean
-  showBlog: boolean
+type SettingsAssetField = 'appleTouchIconUrl' | 'defaultOgImage' | 'faviconUrl'
+
+type BrandAssetFieldProps = {
+  accept: string
+  description: string
+  id: string
+  label: string
+  onUpload: (file: File) => void
+  previewShape?: 'icon' | 'wide'
+  recommendation: string
+  uploading: boolean
+  value: string
+}
+
+function BrandAssetField({
+  accept,
+  description,
+  id,
+  label,
+  onUpload,
+  previewShape = 'icon',
+  recommendation,
+  uploading,
+  value,
+}: BrandAssetFieldProps) {
+  const hasAsset = Boolean(value.trim())
+  const actionLabel = `${hasAsset ? 'Change' : 'Upload'} ${label.toLowerCase()}`
+
+  return (
+    <div className={styles.brandAssetField}>
+      <div
+        className={[
+          styles.brandAssetPreview,
+          previewShape === 'wide' ? styles.brandAssetPreviewWide : '',
+        ].join(' ')}
+      >
+        {hasAsset ? (
+          <img alt={`Current ${label}`} src={value} />
+        ) : (
+          <span>No media yet</span>
+        )}
+      </div>
+      <div className={styles.brandAssetCopy}>
+        <span className={styles.brandAssetTitle}>{label}</span>
+        <small className={styles.fieldHint}>{description}</small>
+        <small className={styles.brandAssetRecommendation}>{recommendation}</small>
+        <div className={styles.brandAssetActions}>
+          <button
+            className={styles.secondaryButton}
+            disabled={uploading}
+            onClick={() => document.getElementById(id)?.click()}
+            type="button"
+          >
+            {uploading ? 'Uploading…' : actionLabel}
+          </button>
+        </div>
+        <input
+          accept={accept}
+          className={styles.hiddenFileInput}
+          id={id}
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0]
+            if (file) {
+              onUpload(file)
+            }
+            event.currentTarget.value = ''
+          }}
+          type="file"
+        />
+      </div>
+    </div>
+  )
+}
+
+interface ContentItemReferenceSelectProps {
+  helperText?: string
+  label: string
+  labelInputProps?: { name?: string; placeholder?: string }
+  onChange: (slug: string, item?: { data: Record<string, unknown>; slug: string }) => void
+  required?: boolean
+  targetType: string
+  value: string
+}
+
+function ContentItemReferenceSelect({
+  helperText,
+  label,
+  onChange,
+  required,
+  targetType,
+  value,
+}: ContentItemReferenceSelectProps) {
+  const def = CONTENT_TYPE_DEFINITIONS.find((entry) => entry.slug === targetType)
+  const titleField = def?.titleField || 'name'
+  const [items, setItems] = useState<Array<{ data: Record<string, unknown>; published: boolean; slug: string }>>([])
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const response = await fetch(`/api/content-items/${encodeURIComponent(targetType)}`)
+        if (!response.ok) {
+          throw new Error(`Failed to load ${targetType} (${response.status})`)
+        }
+        const data = (await response.json()) as Array<{
+          data: Record<string, unknown>
+          published: boolean
+          slug: string
+        }>
+        if (!cancelled) {
+          setItems(data || [])
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : 'Failed to load options.')
+        }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [targetType])
+
+  const sortedItems = [...items].sort((left, right) => {
+    if (left.published !== right.published) {
+      return left.published ? -1 : 1
+    }
+    const leftTitle = String(left.data?.[titleField] || left.slug)
+    const rightTitle = String(right.data?.[titleField] || right.slug)
+    return leftTitle.localeCompare(rightTitle)
+  })
+  const isValueStillKnown = value && sortedItems.some((item) => item.slug === value)
+  const showOrphanedValue = value && !isValueStillKnown
+
+  return (
+    <div className="space-y-1.5">
+      <span className="block text-xs font-medium text-muted-foreground">
+        {label}
+        {required && <span className="ml-0.5 text-destructive">*</span>}
+      </span>
+      <div className="relative">
+        <select
+          className="flex h-10 w-full appearance-none rounded-md border border-input bg-card pl-3 pr-9 py-2 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          onChange={(event) => {
+            const nextSlug = event.target.value
+            const picked = items.find((item) => item.slug === nextSlug)
+            onChange(nextSlug, picked)
+          }}
+          value={value}
+        >
+          <option value="">— None —</option>
+          {sortedItems.map((item) => (
+            <option key={item.slug} value={item.slug}>
+              {String(item.data?.[titleField] || item.slug)}{item.published ? '' : ' (draft)'}
+            </option>
+          ))}
+          {showOrphanedValue && (
+            <option value={value}>
+              {value} (legacy value)
+            </option>
+          )}
+        </select>
+        <svg
+          aria-hidden="true"
+          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          fill="none"
+          viewBox="0 0 16 16"
+        >
+          <path d="m4 6 4 4 4-4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+        </svg>
+      </div>
+      {loadError && <p className="text-xs text-destructive">{loadError}</p>}
+      {!loadError && !items.length && (
+        <p className="text-xs text-muted-foreground">
+          No {def?.labelPlural?.toLowerCase() || targetType} created yet. Add one in the {def?.labelPlural || targetType} tab and it&apos;ll appear here.
+        </p>
+      )}
+      {helperText && <p className="text-xs text-muted-foreground">{helperText}</p>}
+    </div>
+  )
+}
+
+interface ContentItemImageFieldProps {
+  field: ContentFieldDefinition
+  onChange: (value: unknown) => void
+  value: string
+  wrapperClass: string
+}
+
+function ContentItemImageField({ field, onChange, value, wrapperClass }: ContentItemImageFieldProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleFile(file: File | null) {
+    if (!file) {
+      return
+    }
+    setUploading(true)
+    setError(null)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      if (field.label) {
+        form.append('alt', field.label)
+      }
+      const response = await fetch('/api/media/upload', { body: form, method: 'POST' })
+      if (!response.ok) {
+        throw new Error(`Upload failed (${response.status})`)
+      }
+      const result = (await response.json()) as { filename?: string; publicUrl?: string }
+      const url = result.publicUrl || `/api/media/file/${result.filename}`
+      onChange(url)
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'Upload failed.')
+    } finally {
+      setUploading(false)
+      if (inputRef.current) {
+        inputRef.current.value = ''
+      }
+    }
+  }
+
+  const inputClass = 'flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+
+  return (
+    <div className={cn('space-y-2', wrapperClass)}>
+      <span className="block text-xs font-medium text-muted-foreground">
+        {field.label}
+        {field.required && <span className="ml-0.5 text-destructive">*</span>}
+      </span>
+
+      <div className="flex items-start gap-3">
+        <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-white">
+          {value
+            ? <img alt="" className="h-full w-full object-contain" src={value} />
+            : <span className="text-[10px] text-muted-foreground">No image</span>}
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              disabled={uploading}
+              onClick={() => inputRef.current?.click()}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {uploading ? 'Uploading…' : value ? 'Replace image' : 'Upload image'}
+            </Button>
+            {value && (
+              <Button
+                disabled={uploading}
+                onClick={() => onChange('')}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                Remove
+              </Button>
+            )}
+            <input
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => { void handleFile(event.target.files?.[0] || null) }}
+              ref={inputRef}
+              type="file"
+            />
+          </div>
+
+          <input
+            className={inputClass}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder="…or paste an image URL"
+            type="url"
+            value={value}
+          />
+        </div>
+      </div>
+
+      {error && <p className="text-xs text-destructive">{error}</p>}
+      {field.helperText && <p className="text-xs text-muted-foreground">{field.helperText}</p>}
+    </div>
+  )
+}
+
+interface ContentItemFieldEditorProps {
+  field: ContentFieldDefinition
+  isNew: boolean
+  onChange: (value: unknown) => void
+  slug: string
+  updateSlug: (next: string) => void
+  value: unknown
+}
+
+function ContentItemFieldEditor({
+  field,
+  isNew,
+  onChange,
+  slug,
+  updateSlug,
+  value,
+}: ContentItemFieldEditorProps) {
+  const wrapperClass = field.type === 'rich-text' || field.type === 'textarea' || field.type === 'image' || field.type === 'boolean'
+    ? 'sm:col-span-2'
+    : ''
+
+  const inputClass = 'flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+
+  const stringValue = typeof value === 'string' ? value : value == null ? '' : String(value)
+
+  if (field.type === 'slug') {
+    return (
+      <label className={cn('block space-y-1.5', wrapperClass)}>
+        <span className="text-xs font-medium text-muted-foreground">
+          {field.label}
+          {field.required && <span className="ml-0.5 text-destructive">*</span>}
+        </span>
+        <input
+          className={inputClass}
+          onChange={(event) => updateSlug(event.target.value)}
+          placeholder={field.placeholder || 'auto-generated from name'}
+          value={slug}
+        />
+        {isNew && (
+          <p className="text-xs text-muted-foreground">Auto-derived from the title. Edit if you need a custom URL slug.</p>
+        )}
+        {field.helperText && <p className="text-xs text-muted-foreground">{field.helperText}</p>}
+      </label>
+    )
+  }
+
+  if (field.type === 'textarea') {
+    return (
+      <label className={cn('block space-y-1.5', wrapperClass)}>
+        <span className="text-xs font-medium text-muted-foreground">
+          {field.label}
+          {field.required && <span className="ml-0.5 text-destructive">*</span>}
+        </span>
+        <textarea
+          className="flex min-h-24 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={field.placeholder}
+          value={stringValue}
+        />
+        {field.helperText && <p className="text-xs text-muted-foreground">{field.helperText}</p>}
+      </label>
+    )
+  }
+
+  if (field.type === 'rich-text') {
+    return (
+      <div className={cn('space-y-1.5', wrapperClass)}>
+        <span className="block text-xs font-medium text-muted-foreground">
+          {field.label}
+          {field.required && <span className="ml-0.5 text-destructive">*</span>}
+        </span>
+        <RichTextEditor onChange={(next) => onChange(next)} value={stringValue} />
+        {field.helperText && <p className="text-xs text-muted-foreground">{field.helperText}</p>}
+      </div>
+    )
+  }
+
+  if (field.type === 'boolean') {
+    return (
+      <label className={cn('flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2.5', wrapperClass)}>
+        <input
+          checked={Boolean(value)}
+          onChange={(event) => onChange(event.target.checked)}
+          type="checkbox"
+        />
+        <span className="text-sm text-foreground">{field.label}</span>
+      </label>
+    )
+  }
+
+  if (field.type === 'reference') {
+    if (!field.targetType) {
+      return (
+        <div className={cn('space-y-1.5', wrapperClass)}>
+          <span className="block text-xs font-medium text-destructive">
+            {field.label}: reference field missing `targetType`.
+          </span>
+        </div>
+      )
+    }
+    return (
+      <div className={cn(wrapperClass)}>
+        <ContentItemReferenceSelect
+          helperText={field.helperText}
+          label={field.label}
+          onChange={(slug) => onChange(slug)}
+          required={field.required}
+          targetType={field.targetType}
+          value={stringValue}
+        />
+      </div>
+    )
+  }
+
+  if (field.type === 'image') {
+    return (
+      <ContentItemImageField
+        field={field}
+        onChange={onChange}
+        value={stringValue}
+        wrapperClass={wrapperClass}
+      />
+    )
+  }
+
+  return (
+    <label className={cn('block space-y-1.5', wrapperClass)}>
+      <span className="text-xs font-medium text-muted-foreground">
+        {field.label}
+        {field.required && <span className="ml-0.5 text-destructive">*</span>}
+      </span>
+      <input
+        className={inputClass}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={field.placeholder}
+        type={field.type === 'url' ? 'url' : 'text'}
+        value={stringValue}
+      />
+      {field.helperText && <p className="text-xs text-muted-foreground">{field.helperText}</p>}
+    </label>
+  )
+}
+
+type UserFeatureVisibility = {
+  showAiBlogTools: boolean
+  showAiSettings: boolean
+  showLinkedIn: boolean
 }
 
 type ManagedUserRecord = {
   createdAt: string
   email: string
+  featureVisibility: UserFeatureVisibility
   id: string
   name: string
   role: UserRole
   updatedAt: string
+}
+
+type UserAccessDraft = {
+  featureVisibility: UserFeatureVisibility
+  role: UserRole
 }
 
 type UserInvitationRecord = {
@@ -324,6 +861,7 @@ type UserInvitationRecord = {
   createdAt: string
   email: string
   expiresAt: string
+  featureVisibility: UserFeatureVisibility
   id: string
   invitedByUserId: string
   name: string
@@ -345,37 +883,65 @@ type AiPostBuilder = {
   topic: string
 }
 
-type TabKey = 'dashboard' | 'settings' | 'ai' | 'linkedin' | 'pages' | 'posts' | 'products' | 'media' | 'users'
+type StaticTabKey = 'dashboard' | 'settings' | 'ai' | 'linkedin' | 'email' | 'pages' | 'posts' | 'products' | 'media' | 'users'
+type ContentItemTabKey = `content-item:${string}`
+type TabKey = StaticTabKey | ContentItemTabKey
+
+const CONTENT_ITEM_TAB_PREFIX = 'content-item:'
+function contentItemTabKey(typeSlug: string): ContentItemTabKey {
+  return `${CONTENT_ITEM_TAB_PREFIX}${typeSlug}` as ContentItemTabKey
+}
+function isContentItemTab(tab: TabKey): tab is ContentItemTabKey {
+  return typeof tab === 'string' && tab.startsWith(CONTENT_ITEM_TAB_PREFIX)
+}
+function contentTypeSlugFromTab(tab: ContentItemTabKey): string {
+  return tab.slice(CONTENT_ITEM_TAB_PREFIX.length)
+}
+type PageListSort = 'slug-asc' | 'slug-desc' | 'published'
 type PostListSort = 'recent' | 'title-asc' | 'title-desc' | 'published'
 type ProductListSort = 'title-asc' | 'title-desc' | 'category' | 'published'
 type UnsavedProductExitChoice = 'cancel' | 'discard' | 'save'
+type ThemeMode = 'dark' | 'light'
 
-const PRODUCT_TYPE_OPTIONS = [
-  {
-    value: 'service',
-    label: 'Service',
-    categorySlug: 'services',
-    categoryLabel: 'Services',
-  },
-  {
-    value: 'package',
-    label: 'Package',
-    categorySlug: 'packages',
-    categoryLabel: 'Packages',
-  },
-  {
-    value: 'resource',
-    label: 'Resource',
-    categorySlug: 'resources',
-    categoryLabel: 'Resources',
-  },
-  {
-    value: 'demo',
-    label: 'Demo',
-    categorySlug: 'demo',
-    categoryLabel: 'Demo',
-  },
-] as const
+const ADMIN_THEME_STORAGE_KEY = 'clastro-admin-theme'
+
+const DEFAULT_USER_FEATURE_VISIBILITY: UserFeatureVisibility = {
+  showAiBlogTools: true,
+  showAiSettings: true,
+  showLinkedIn: true,
+}
+
+function normalizeUserFeatureVisibility(value?: Partial<UserFeatureVisibility>): UserFeatureVisibility {
+  return {
+    showAiBlogTools: value?.showAiBlogTools !== false,
+    showAiSettings: value?.showAiSettings !== false,
+    showLinkedIn: value?.showLinkedIn !== false,
+  }
+}
+
+function createUserAccessDraft(entry: ManagedUserRecord): UserAccessDraft {
+  return {
+    featureVisibility: normalizeUserFeatureVisibility(entry.featureVisibility),
+    role: entry.role,
+  }
+}
+
+function userFeatureVisibilityChanged(
+  left: UserFeatureVisibility,
+  right: UserFeatureVisibility,
+) {
+  return left.showAiSettings !== right.showAiSettings
+    || left.showAiBlogTools !== right.showAiBlogTools
+    || left.showLinkedIn !== right.showLinkedIn
+}
+
+function userAccessDraftChanged(entry: ManagedUserRecord, draft: UserAccessDraft) {
+  return draft.role !== entry.role
+    || userFeatureVisibilityChanged(
+      normalizeUserFeatureVisibility(entry.featureVisibility),
+      draft.featureVisibility,
+    )
+}
 
 const NAV_SECTIONS: Array<{
   items: Array<{ description: string; key: TabKey; label: string }>
@@ -392,7 +958,7 @@ const NAV_SECTIONS: Array<{
     ],
   },
   {
-    label: 'Content',
+    label: 'Content Pages',
     items: [
       {
         key: 'pages',
@@ -404,11 +970,26 @@ const NAV_SECTIONS: Array<{
         label: 'Blog Posts',
         description: 'Articles and resources',
       },
+    ],
+  },
+  {
+    label: 'Content Items',
+    items: [
       {
         key: 'products',
         label: 'Products',
         description: 'Repeatable demo records',
       },
+      ...CONTENT_TYPE_DEFINITIONS.map((def) => ({
+        description: def.description,
+        key: contentItemTabKey(def.slug),
+        label: def.labelPlural,
+      })),
+    ],
+  },
+  {
+    label: 'Manage',
+    items: [
       {
         key: 'media',
         label: 'Media',
@@ -425,6 +1006,11 @@ const NAV_SECTIONS: Array<{
     label: 'Config',
     items: [
       {
+        key: 'email',
+        label: 'Email',
+        description: 'Resend API key and form submissions',
+      },
+      {
         key: 'ai',
         label: 'AI Settings',
         description: 'Models, keys, and prompt templates',
@@ -437,13 +1023,13 @@ const NAV_SECTIONS: Array<{
       {
         key: 'settings',
         label: 'Site Settings',
-        description: 'Shared SEO and structure data',
+        description: 'Identity and social defaults',
       },
     ],
   },
 ]
 
-const TAB_META: Record<TabKey, { description: string; title: string }> = {
+const STATIC_TAB_META: Record<StaticTabKey, { description: string; title: string }> = {
   ai: {
     title: 'AI Settings',
     description: 'Configure provider access, reusable prompts, and AI-assisted content workflows.',
@@ -452,13 +1038,17 @@ const TAB_META: Record<TabKey, { description: string; title: string }> = {
     title: 'Dashboard',
     description: 'Overview of content, media, and shared site configuration.',
   },
+  email: {
+    title: 'Email',
+    description: 'Configure Resend and view form submissions captured from the public site.',
+  },
   linkedin: {
     title: 'LinkedIn',
     description: 'Connect each client LinkedIn account and manage publish access.',
   },
   settings: {
     title: 'Site Settings',
-    description: 'Shared settings used across navigation, footer, booking, and SEO defaults.',
+    description: 'Global identity, contact details, favicons, and social preview defaults.',
   },
   pages: {
     title: 'Pages',
@@ -482,16 +1072,19 @@ const TAB_META: Record<TabKey, { description: string; title: string }> = {
   },
 }
 
-function prettyJson(value: unknown) {
-  return JSON.stringify(value, null, 2)
-}
-
-function parseJson(value: string, label: string) {
-  try {
-    return JSON.parse(value)
-  } catch {
-    throw new Error(`Invalid JSON for ${label}.`)
+function getTabMeta(tab: TabKey): { description: string; title: string } {
+  if (isContentItemTab(tab)) {
+    const typeSlug = contentTypeSlugFromTab(tab)
+    const def = CONTENT_TYPE_DEFINITIONS.find((entry) => entry.slug === typeSlug)
+    if (def) {
+      return {
+        title: def.labelPlural,
+        description: def.description,
+      }
+    }
+    return { title: 'Content Items', description: 'Manage collection items.' }
   }
+  return STATIC_TAB_META[tab as StaticTabKey]
 }
 
 function parsePositiveInteger(value: string, label: string) {
@@ -517,23 +1110,9 @@ function createBlankPostDraft(): PostRecord {
     publishedAt: new Date().toISOString(),
     authorName: 'Clastro Editor',
     authorRole: 'CMS Demo Author',
+    authorSlug: '',
     primaryCategory: 'CMS',
     categories: [],
-  }
-}
-
-function applyProductTypeToDraft(product: ProductRecord, airconType: string): ProductRecord {
-  const selectedType = PRODUCT_TYPE_OPTIONS.find((option) => option.value === airconType)
-
-  if (!selectedType) {
-    return product
-  }
-
-  return {
-    ...product,
-    airconType: selectedType.value,
-    categorySlug: selectedType.categorySlug,
-    categoryLabel: selectedType.categoryLabel,
   }
 }
 
@@ -544,23 +1123,14 @@ function createBlankProductDraft(): ProductRecord {
     price: undefined,
     priceLabel: '',
     productImages: [],
-    coolingKw: 0,
-    heatingKw: 0,
     heroImageUrl: '',
     heroImageAlt: '',
     shortDescription: '',
-    installationCost: 'demo-only',
     isFrontPage: false,
-    airconType: 'service',
     metaTitle: '',
     metaDescription: '',
-    familyCode: '',
-    familyName: '',
-    categorySlug: 'services',
-    categoryLabel: 'Services',
-    installSummary: 'Demo implementation notes',
-    brochureLabel: '',
-    brochureHref: '',
+    categorySlug: '',
+    categoryLabel: '',
     overview: '',
     bestFor: [],
     specNotes: [],
@@ -659,26 +1229,26 @@ export function AdminApp({ user }: { user: User }) {
   const isSuperAdmin = user.role === 'super_admin'
   const linkedInComingSoon = true
   const [tab, setTab] = useState<TabKey>('dashboard')
+  const [themeMode, setThemeMode] = useState<ThemeMode>('light')
   const [status, setStatus] = useState<{ kind: 'error' | 'info'; text: string } | null>(null)
-  const [featureFlags, setFeatureFlags] = useState<FeatureFlags>({
-    showAiDashboard: false,
-    showBlog: false,
-  })
-  const [featureFlagsDraft, setFeatureFlagsDraft] = useState<FeatureFlags>({
-    showAiDashboard: false,
-    showBlog: false,
+  const [featureFlags, setFeatureFlags] = useState<UserFeatureVisibility>({
+    showAiBlogTools: false,
+    showAiSettings: false,
+    showLinkedIn: false,
   })
 
   const [settings, setSettings] = useState<Settings | null>(null)
   const [settingsDraft, setSettingsDraft] = useState({
-    bookingJson: '',
+    appleTouchIconUrl: '',
     contactEmail: '',
     contactPhone: '',
     defaultOgImage: '',
-    footerJson: '',
-    navigationJson: '',
+    faviconUrl: '',
+    socialShareDescription: '',
+    socialShareTitle: '',
     siteName: '',
     siteUrl: '',
+    themeColor: '',
   })
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null)
   const [aiSettingsDraft, setAiSettingsDraft] = useState({
@@ -719,6 +1289,8 @@ export function AdminApp({ user }: { user: User }) {
   const [activePostSlug, setActivePostSlug] = useState('')
   const [postDraft, setPostDraft] = useState<PostRecord | null>(null)
   const [coverImageLibraryOpen, setCoverImageLibraryOpen] = useState(false)
+  const [pageListQuery, setPageListQuery] = useState('')
+  const [pageListSort, setPageListSort] = useState<PageListSort>('slug-asc')
   const [postListQuery, setPostListQuery] = useState('')
   const [postListSort, setPostListSort] = useState<PostListSort>('recent')
   const [products, setProducts] = useState<ProductRecord[]>([])
@@ -727,11 +1299,16 @@ export function AdminApp({ user }: { user: User }) {
   const [managedUsers, setManagedUsers] = useState<ManagedUserRecord[]>([])
   const [userInvitations, setUserInvitations] = useState<UserInvitationRecord[]>([])
   const [creatingInvitation, setCreatingInvitation] = useState(false)
+  const [expandedUserAccessId, setExpandedUserAccessId] = useState('')
+  const [generatedInviteId, setGeneratedInviteId] = useState('')
   const [generatedInviteUrl, setGeneratedInviteUrl] = useState('')
+  const [userAccessDrafts, setUserAccessDrafts] = useState<Record<string, UserAccessDraft>>({})
   const [deletingUserId, setDeletingUserId] = useState('')
   const [updatingUserId, setUpdatingUserId] = useState('')
+  const [updatingUserFeaturesId, setUpdatingUserFeaturesId] = useState('')
   const [inviteDraft, setInviteDraft] = useState({
     email: '',
+    featureVisibility: DEFAULT_USER_FEATURE_VISIBILITY,
     name: '',
     role: 'editor' as UserRole,
   })
@@ -740,6 +1317,28 @@ export function AdminApp({ user }: { user: User }) {
   const [productListQuery, setProductListQuery] = useState('')
   const [productListSort, setProductListSort] = useState<ProductListSort>('category')
   const draggedProductImageIndex = useRef<number | null>(null)
+  const [contentItemsByType, setContentItemsByType] = useState<Record<string, Array<{
+    data: Record<string, unknown>
+    id: string
+    published: boolean
+    slug: string
+  }>>>({})
+  const [activeContentItemSlug, setActiveContentItemSlug] = useState('')
+  const [contentItemDraft, setContentItemDraft] = useState<{
+    data: Record<string, unknown>
+    isNew: boolean
+    originalSlug: string
+    published: boolean
+    slug: string
+    type: string
+  } | null>(null)
+  const [contentItemListQuery, setContentItemListQuery] = useState('')
+  const [savingContentItem, setSavingContentItem] = useState(false)
+  const [contentItemDeleteConfirm, setContentItemDeleteConfirm] = useState<{
+    slug: string
+    title: string
+    type: string
+  } | null>(null)
   const [aiPostBuilder, setAiPostBuilder] = useState<AiPostBuilder>({
     topic: '',
     audience: 'Business owners and website editors',
@@ -756,24 +1355,62 @@ export function AdminApp({ user }: { user: User }) {
 
   const [media, setMedia] = useState<MediaRecord[]>([])
   const [uploading, setUploading] = useState(false)
+  const [mediaEditDraft, setMediaEditDraft] = useState<{ alt: string; id: string } | null>(null)
+  const [savingMediaAlt, setSavingMediaAlt] = useState(false)
+  const [deletingMediaId, setDeletingMediaId] = useState<string | null>(null)
+  const [mediaDeleteConfirm, setMediaDeleteConfirm] = useState<MediaRecord | null>(null)
+
+  type EmailSettingsState = {
+    fromEmail: string
+    fromName: string
+    hasResendApiKey: boolean
+    notificationEmail: string
+    resendApiKeyInput: string
+  }
+  type FormSubmissionRecord = {
+    archived: boolean
+    createdAt: string
+    email: string
+    formType: string
+    id: string
+    message: string
+    name: string
+    sourcePath?: string
+    subject: string
+  }
+  const [emailSettings, setEmailSettings] = useState<EmailSettingsState>({
+    fromEmail: '',
+    fromName: '',
+    hasResendApiKey: false,
+    notificationEmail: '',
+    resendApiKeyInput: '',
+  })
+  const [savingEmailSettings, setSavingEmailSettings] = useState(false)
+  const [formSubmissions, setFormSubmissions] = useState<FormSubmissionRecord[]>([])
+  const [activeSubmission, setActiveSubmission] = useState<FormSubmissionRecord | null>(null)
+  const [submissionDeleteConfirm, setSubmissionDeleteConfirm] = useState<FormSubmissionRecord | null>(null)
+  const [uploadingSettingsAsset, setUploadingSettingsAsset] = useState<SettingsAssetField | ''>('')
   const [sharingToLinkedIn, setSharingToLinkedIn] = useState(false)
   const [unsavedProductDialog, setUnsavedProductDialog] = useState<{ actionLabel: string } | null>(null)
   const unsavedProductDialogResolver = useRef<((choice: UnsavedProductExitChoice) => void) | null>(null)
   const canManageUsers = canManageCmsUsers(user.role)
   const inviteRoleOptions = assignableRolesFor(user.role)
-  const canViewAi = isSuperAdmin || featureFlags.showAiDashboard
-  const canViewBlog = isSuperAdmin || featureFlags.showBlog
-  const canUseAiBlogBuilder = isSuperAdmin || (featureFlags.showAiDashboard && featureFlags.showBlog)
+  const canViewAi = isSuperAdmin || featureFlags.showAiSettings
+  const canViewBlog = true
+  const canUseAiBlogBuilder = isSuperAdmin || featureFlags.showAiBlogTools
+  const canViewLinkedIn = isSuperAdmin || featureFlags.showLinkedIn
   const allowedTabs = new Set<TabKey>([
     'dashboard',
     'settings',
+    'email',
     'pages',
     'products',
     'media',
     ...(canViewBlog ? (['posts'] as TabKey[]) : []),
     ...(canViewAi ? (['ai'] as TabKey[]) : []),
     ...(canManageUsers ? (['users'] as TabKey[]) : []),
-    ...(isSuperAdmin ? (['linkedin'] as TabKey[]) : []),
+    ...(canViewLinkedIn ? (['linkedin'] as TabKey[]) : []),
+    ...CONTENT_TYPE_DEFINITIONS.map((def) => contentItemTabKey(def.slug) as TabKey),
   ])
   const isTabAllowed = (nextTab: TabKey) => allowedTabs.has(nextTab)
   const normalizedProductImageLibraryQuery = productImageLibraryQuery.trim().toLowerCase()
@@ -839,19 +1476,20 @@ export function AdminApp({ user }: { user: User }) {
       setSettingsDraft({
         siteName: nextSettings.siteName,
         siteUrl: nextSettings.siteUrl,
+        faviconUrl: nextSettings.faviconUrl || '',
+        appleTouchIconUrl: nextSettings.appleTouchIconUrl || '',
         defaultOgImage: nextSettings.defaultOgImage || '',
+        socialShareTitle: nextSettings.socialShareTitle || '',
+        socialShareDescription: nextSettings.socialShareDescription || '',
+        themeColor: nextSettings.themeColor || '',
         contactEmail: nextSettings.contactEmail || '',
         contactPhone: nextSettings.contactPhone || '',
-        navigationJson: prettyJson(nextSettings.navigation),
-        footerJson: prettyJson(nextSettings.footer),
-        bookingJson: prettyJson(nextSettings.booking),
       })
     }
 
     if (featureFlagsResponse.ok) {
-      const nextFeatureFlags = (await featureFlagsResponse.json()) as FeatureFlags
+      const nextFeatureFlags = (await featureFlagsResponse.json()) as UserFeatureVisibility
       setFeatureFlags(nextFeatureFlags)
-      setFeatureFlagsDraft(nextFeatureFlags)
     }
 
     if (aiSettingsResponse.ok) {
@@ -955,6 +1593,22 @@ export function AdminApp({ user }: { user: User }) {
   }, [])
 
   useEffect(() => {
+    const storedTheme = window.localStorage.getItem(ADMIN_THEME_STORAGE_KEY)
+    if (storedTheme === 'dark' || storedTheme === 'light') {
+      setThemeMode(storedTheme)
+      return
+    }
+
+    if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+      setThemeMode('dark')
+    }
+  }, [])
+
+  useEffect(() => {
+    window.localStorage.setItem(ADMIN_THEME_STORAGE_KEY, themeMode)
+  }, [themeMode])
+
+  useEffect(() => {
     if (!isTabAllowed(tab)) {
       setTab('dashboard')
     }
@@ -1023,6 +1677,104 @@ export function AdminApp({ user }: { user: User }) {
     }
   }, [activeProductSlug, products])
 
+  // Load Email tab data (settings + submissions) when activated
+  useEffect(() => {
+    if (tab !== 'email') {
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const [settingsRes, submissionsRes] = await Promise.all([
+          fetch('/api/email/settings'),
+          fetch('/api/email/submissions'),
+        ])
+        if (!settingsRes.ok) {
+          throw new Error(`Failed to load email settings (${settingsRes.status})`)
+        }
+        if (!submissionsRes.ok) {
+          throw new Error(`Failed to load submissions (${submissionsRes.status})`)
+        }
+        const settings = await settingsRes.json() as {
+          fromEmail: string
+          fromName: string
+          hasResendApiKey: boolean
+          notificationEmail: string
+        }
+        const submissions = await submissionsRes.json() as FormSubmissionRecord[]
+        if (cancelled) return
+        setEmailSettings({
+          fromEmail: settings.fromEmail || '',
+          fromName: settings.fromName || '',
+          hasResendApiKey: Boolean(settings.hasResendApiKey),
+          notificationEmail: settings.notificationEmail || '',
+          resendApiKeyInput: '',
+        })
+        setFormSubmissions(submissions || [])
+      } catch (error) {
+        if (!cancelled) {
+          setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to load email data.' })
+        }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [tab])
+
+  // Load content items when the active tab changes to a content-item type
+  useEffect(() => {
+    if (!isContentItemTab(tab)) {
+      return
+    }
+    const typeSlug = contentTypeSlugFromTab(tab)
+    let cancelled = false
+    void (async () => {
+      try {
+        const response = await fetch(`/api/content-items/${encodeURIComponent(typeSlug)}`)
+        if (!response.ok) {
+          throw new Error(`Failed to load ${typeSlug} (${response.status})`)
+        }
+        const items = (await response.json()) as Array<{
+          data: Record<string, unknown>
+          id: string
+          published: boolean
+          slug: string
+        }>
+        if (cancelled) {
+          return
+        }
+        setContentItemsByType((current) => ({ ...current, [typeSlug]: items }))
+      } catch (error) {
+        if (!cancelled) {
+          setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to load content items.' })
+        }
+      }
+    })()
+    setActiveContentItemSlug('')
+    setContentItemDraft(null)
+    setContentItemListQuery('')
+    return () => { cancelled = true }
+  }, [tab])
+
+  // Sync the draft when the user picks a different item
+  useEffect(() => {
+    if (!isContentItemTab(tab) || !activeContentItemSlug) {
+      return
+    }
+    const typeSlug = contentTypeSlugFromTab(tab)
+    const items = contentItemsByType[typeSlug] || []
+    const existing = items.find((item) => item.slug === activeContentItemSlug)
+    if (existing) {
+      setContentItemDraft({
+        data: { ...existing.data },
+        isNew: false,
+        originalSlug: existing.slug,
+        published: existing.published,
+        slug: existing.slug,
+        type: typeSlug,
+      })
+    }
+  }, [activeContentItemSlug, contentItemsByType, tab])
+
   useEffect(() => {
     if (!hasUnsavedProductChanges) {
       return
@@ -1039,15 +1791,24 @@ export function AdminApp({ user }: { user: User }) {
 
   async function saveSettings() {
     try {
+      if (!settings) {
+        throw new Error('Site settings are still loading.')
+      }
+
       const payload: Settings = {
         siteName: settingsDraft.siteName,
         siteUrl: settingsDraft.siteUrl,
+        faviconUrl: settingsDraft.faviconUrl,
+        appleTouchIconUrl: settingsDraft.appleTouchIconUrl,
         defaultOgImage: settingsDraft.defaultOgImage,
+        socialShareTitle: settingsDraft.socialShareTitle,
+        socialShareDescription: settingsDraft.socialShareDescription,
+        themeColor: settingsDraft.themeColor,
         contactEmail: settingsDraft.contactEmail,
         contactPhone: settingsDraft.contactPhone,
-        navigation: parseJson(settingsDraft.navigationJson, 'navigation'),
-        footer: parseJson(settingsDraft.footerJson, 'footer'),
-        booking: parseJson(settingsDraft.bookingJson, 'booking'),
+        navigation: settings.navigation,
+        footer: settings.footer,
+        booking: settings.booking,
       }
 
       const response = await fetch('/api/settings', {
@@ -1064,6 +1825,49 @@ export function AdminApp({ user }: { user: User }) {
       await loadAll()
     } catch (error) {
       setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to save settings.' })
+    }
+  }
+
+  async function uploadSettingsAsset(field: SettingsAssetField, file: File, label: string) {
+    if (!file.size) {
+      setStatus({ kind: 'error', text: `Choose a ${label.toLowerCase()} file to upload.` })
+      return
+    }
+
+    setUploadingSettingsAsset(field)
+    setStatus(null)
+
+    try {
+      const form = new FormData()
+      const alt = `${settingsDraft.siteName || 'Site'} ${label}`
+      form.append('file', file)
+      form.append('alt', alt)
+
+      const response = await fetch('/api/media/upload', { method: 'POST', body: form })
+
+      if (!response.ok) {
+        throw new Error(`Failed to upload ${label.toLowerCase()}.`)
+      }
+
+      const result = (await response.json()) as { alt?: string; filename?: string; id?: string; publicUrl?: string; sourceUrl?: string }
+      const url = result.publicUrl || `/api/media/file/${result.filename || file.name}`
+
+      setSettingsDraft((current) => ({ ...current, [field]: url }))
+      setMedia((current) => [
+        {
+          alt: result.alt || alt,
+          filename: result.filename || file.name,
+          id: result.id || url,
+          publicUrl: url,
+          sourceUrl: result.sourceUrl,
+        },
+        ...current.filter((item) => item.publicUrl !== url),
+      ])
+      setStatus({ kind: 'info', text: `${label} uploaded. Save settings to publish this change.` })
+    } catch (error) {
+      setStatus({ kind: 'error', text: error instanceof Error ? error.message : `Failed to upload ${label.toLowerCase()}.` })
+    } finally {
+      setUploadingSettingsAsset('')
     }
   }
 
@@ -1114,26 +1918,6 @@ export function AdminApp({ user }: { user: User }) {
       await loadAll()
     } catch (error) {
       setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to save AI settings.' })
-    }
-  }
-
-  async function saveFeatureFlags() {
-    try {
-      const response = await fetch('/api/feature-flags', {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(featureFlagsDraft),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to save feature visibility.')
-      }
-
-      setFeatureFlags(featureFlagsDraft)
-      setStatus({ kind: 'info', text: 'Feature visibility saved.' })
-      await loadAll()
-    } catch (error) {
-      setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to save feature visibility.' })
     }
   }
 
@@ -1357,7 +2141,7 @@ export function AdminApp({ user }: { user: User }) {
         throw new Error('Upload failed.')
       }
 
-      const result = (await response.json()) as { filename?: string; publicUrl?: string }
+      const result = (await response.json()) as { filename?: string; id?: string; publicUrl?: string }
       const url = result.publicUrl || `/api/media/file/${result.filename}`
 
       setPostDraft({ ...postDraft, coverImageAlt: alt, coverImageUrl: url })
@@ -1365,6 +2149,7 @@ export function AdminApp({ user }: { user: User }) {
         {
           alt,
           filename: result.filename || file.name,
+          id: result.id || url,
           publicUrl: url,
         },
         ...current.filter((item) => item.publicUrl !== url),
@@ -1468,7 +2253,7 @@ export function AdminApp({ user }: { user: User }) {
     }
 
     if (tab === 'products' && nextTab !== 'products') {
-      const canLeave = await confirmProductDraftExit(`go to ${TAB_META[nextTab].title}`)
+      const canLeave = await confirmProductDraftExit(`go to ${getTabMeta(nextTab).title}`)
       if (!canLeave) {
         return
       }
@@ -1686,7 +2471,7 @@ export function AdminApp({ user }: { user: User }) {
           throw new Error('Upload failed.')
         }
 
-        const result = (await response.json()) as { filename?: string; publicUrl?: string }
+        const result = (await response.json()) as { filename?: string; id?: string; publicUrl?: string }
         const url = result.publicUrl || `/api/media/file/${result.filename}`
 
         uploadedImages.push({
@@ -1699,6 +2484,7 @@ export function AdminApp({ user }: { user: User }) {
           {
             alt,
             filename: result.filename || file.name,
+            id: result.id || url,
             publicUrl: url,
           },
           ...current.filter((item) => item.publicUrl !== url),
@@ -1890,6 +2676,240 @@ export function AdminApp({ user }: { user: User }) {
     }
   }
 
+  async function saveEmailSettings() {
+    setSavingEmailSettings(true)
+    try {
+      const body: Record<string, unknown> = {
+        fromEmail: emailSettings.fromEmail,
+        fromName: emailSettings.fromName,
+        notificationEmail: emailSettings.notificationEmail,
+      }
+      if (emailSettings.resendApiKeyInput) {
+        body.resendApiKey = emailSettings.resendApiKeyInput
+      }
+      const response = await fetch('/api/email/settings', {
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT',
+      })
+      if (!response.ok) {
+        throw new Error(`Failed to save (${response.status})`)
+      }
+      const saved = await response.json() as {
+        fromEmail: string
+        fromName: string
+        hasResendApiKey: boolean
+        notificationEmail: string
+      }
+      setEmailSettings({
+        fromEmail: saved.fromEmail || '',
+        fromName: saved.fromName || '',
+        hasResendApiKey: Boolean(saved.hasResendApiKey),
+        notificationEmail: saved.notificationEmail || '',
+        resendApiKeyInput: '',
+      })
+      setStatus({ kind: 'info', text: 'Email settings saved.' })
+    } catch (error) {
+      setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to save email settings.' })
+    } finally {
+      setSavingEmailSettings(false)
+    }
+  }
+
+  async function archiveSubmission(submission: FormSubmissionRecord, archived: boolean) {
+    try {
+      const response = await fetch(`/api/email/submissions/${encodeURIComponent(submission.id)}`, {
+        body: JSON.stringify({ archived }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      })
+      if (!response.ok) {
+        throw new Error(`Failed to update (${response.status})`)
+      }
+      setFormSubmissions((current) => current.map((entry) => (
+        entry.id === submission.id ? { ...entry, archived } : entry
+      )))
+      if (activeSubmission?.id === submission.id) {
+        setActiveSubmission({ ...submission, archived })
+      }
+      setStatus({ kind: 'info', text: archived ? 'Submission archived.' : 'Submission restored.' })
+    } catch (error) {
+      setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to update submission.' })
+    }
+  }
+
+  async function deleteSubmission(submission: FormSubmissionRecord) {
+    try {
+      const response = await fetch(`/api/email/submissions/${encodeURIComponent(submission.id)}`, { method: 'DELETE' })
+      if (!response.ok) {
+        throw new Error(`Failed to delete (${response.status})`)
+      }
+      setFormSubmissions((current) => current.filter((entry) => entry.id !== submission.id))
+      if (activeSubmission?.id === submission.id) {
+        setActiveSubmission(null)
+      }
+      setSubmissionDeleteConfirm(null)
+      setStatus({ kind: 'info', text: 'Submission deleted.' })
+    } catch (error) {
+      setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to delete submission.' })
+    }
+  }
+
+  function startNewContentItem(typeSlug: string) {
+    const def = CONTENT_TYPE_DEFINITIONS.find((entry) => entry.slug === typeSlug)
+    if (!def) {
+      return
+    }
+    const blankData: Record<string, unknown> = {}
+    for (const field of def.fields) {
+      blankData[field.name] = field.type === 'boolean' ? false : ''
+    }
+    setActiveContentItemSlug('')
+    setContentItemDraft({
+      data: blankData,
+      isNew: true,
+      originalSlug: '',
+      published: false,
+      slug: '',
+      type: typeSlug,
+    })
+  }
+
+  async function saveContentItem() {
+    if (!contentItemDraft) {
+      return
+    }
+    const def = CONTENT_TYPE_DEFINITIONS.find((entry) => entry.slug === contentItemDraft.type)
+    if (!def) {
+      setStatus({ kind: 'error', text: 'Unknown content type.' })
+      return
+    }
+    const slug = (contentItemDraft.slug || '').trim()
+    if (!slug) {
+      setStatus({ kind: 'error', text: 'Slug is required.' })
+      return
+    }
+    const titleField = def.titleField || 'name'
+    const titleValue = String(contentItemDraft.data[titleField] || '').trim()
+    if (!titleValue) {
+      setStatus({ kind: 'error', text: `${def.fields.find((f) => f.name === titleField)?.label || 'Title'} is required.` })
+      return
+    }
+
+    setSavingContentItem(true)
+    try {
+      const response = await fetch(`/api/content-items/${encodeURIComponent(contentItemDraft.type)}/${encodeURIComponent(contentItemDraft.originalSlug || slug)}`, {
+        body: JSON.stringify({
+          data: contentItemDraft.data,
+          published: contentItemDraft.published,
+          slug,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT',
+      })
+      if (!response.ok) {
+        throw new Error(`Failed to save (${response.status})`)
+      }
+      const saved = (await response.json()) as {
+        data: Record<string, unknown>
+        id: string
+        published: boolean
+        slug: string
+      }
+      setContentItemsByType((current) => {
+        const next = { ...current }
+        const items = next[contentItemDraft.type] ? [...next[contentItemDraft.type]] : []
+        const replaceIndex = items.findIndex((item) => item.slug === contentItemDraft.originalSlug)
+        if (replaceIndex >= 0) {
+          items.splice(replaceIndex, 1, saved)
+        } else {
+          items.unshift(saved)
+        }
+        next[contentItemDraft.type] = items
+        return next
+      })
+      setActiveContentItemSlug(saved.slug)
+      setContentItemDraft({
+        data: saved.data,
+        isNew: false,
+        originalSlug: saved.slug,
+        published: saved.published,
+        slug: saved.slug,
+        type: contentItemDraft.type,
+      })
+      setStatus({ kind: 'info', text: `${def.label} saved.` })
+    } catch (error) {
+      setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to save content item.' })
+    } finally {
+      setSavingContentItem(false)
+    }
+  }
+
+  async function deleteContentItemRecord(typeSlug: string, slug: string) {
+    try {
+      const response = await fetch(`/api/content-items/${encodeURIComponent(typeSlug)}/${encodeURIComponent(slug)}`, { method: 'DELETE' })
+      if (!response.ok) {
+        throw new Error(`Failed to delete (${response.status})`)
+      }
+      setContentItemsByType((current) => {
+        const next = { ...current }
+        next[typeSlug] = (next[typeSlug] || []).filter((entry) => entry.slug !== slug)
+        return next
+      })
+      if (activeContentItemSlug === slug) {
+        setActiveContentItemSlug('')
+        setContentItemDraft(null)
+      }
+      setStatus({ kind: 'info', text: 'Content item deleted.' })
+      setContentItemDeleteConfirm(null)
+    } catch (error) {
+      setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to delete content item.' })
+    }
+  }
+
+  async function saveMediaAlt() {
+    if (!mediaEditDraft) {
+      return
+    }
+    setSavingMediaAlt(true)
+    try {
+      const response = await fetch(`/api/media/${encodeURIComponent(mediaEditDraft.id)}`, {
+        body: JSON.stringify({ alt: mediaEditDraft.alt }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT',
+      })
+      if (!response.ok) {
+        throw new Error(`Failed to save alt text (${response.status})`)
+      }
+      setMedia((current) => current.map((item) => (
+        item.id === mediaEditDraft.id ? { ...item, alt: mediaEditDraft.alt } : item
+      )))
+      setStatus({ kind: 'info', text: 'Alt text updated.' })
+      setMediaEditDraft(null)
+    } catch (error) {
+      setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to save alt text.' })
+    } finally {
+      setSavingMediaAlt(false)
+    }
+  }
+
+  async function deleteMediaItem(item: MediaRecord) {
+    setDeletingMediaId(item.id)
+    try {
+      const response = await fetch(`/api/media/${encodeURIComponent(item.id)}`, { method: 'DELETE' })
+      if (!response.ok) {
+        throw new Error(`Failed to delete media (${response.status})`)
+      }
+      setMedia((current) => current.filter((entry) => entry.id !== item.id))
+      setStatus({ kind: 'info', text: `Deleted ${item.filename}.` })
+      setMediaDeleteConfirm(null)
+    } catch (error) {
+      setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to delete media.' })
+    } finally {
+      setDeletingMediaId(null)
+    }
+  }
+
   async function copyToClipboard(value: string, successMessage: string) {
     try {
       await navigator.clipboard.writeText(value)
@@ -1915,19 +2935,26 @@ export function AdminApp({ user }: { user: User }) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           email,
+          featureVisibility: inviteDraft.featureVisibility,
           name,
           role: inviteDraft.role,
         }),
       })
-      const payload = (await response.json().catch(() => null)) as { error?: string; inviteUrl?: string } | null
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string
+        invitation?: UserInvitationRecord
+        inviteUrl?: string
+      } | null
 
       if (!response.ok || !payload?.inviteUrl) {
         throw new Error(payload?.error || 'Failed to create invite link.')
       }
 
+      setGeneratedInviteId(payload.invitation?.id || '')
       setGeneratedInviteUrl(payload.inviteUrl)
       setInviteDraft({
         email: '',
+        featureVisibility: DEFAULT_USER_FEATURE_VISIBILITY,
         name: '',
         role: 'editor',
       })
@@ -1950,10 +2977,110 @@ export function AdminApp({ user }: { user: User }) {
         throw new Error('Failed to revoke invite.')
       }
 
+      if (generatedInviteId === id) {
+        setGeneratedInviteId('')
+        setGeneratedInviteUrl('')
+      }
       setStatus({ kind: 'info', text: 'Invite revoked.' })
       await loadUsers()
     } catch (error) {
       setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to revoke invite.' })
+    }
+  }
+
+  function removeUserAccessDraft(userId: string) {
+    setUserAccessDrafts((current) => {
+      const next = { ...current }
+      delete next[userId]
+      return next
+    })
+  }
+
+  function openUserAccessEditor(entry: ManagedUserRecord) {
+    setUserAccessDrafts((current) => ({
+      ...current,
+      [entry.id]: current[entry.id] || createUserAccessDraft(entry),
+    }))
+    setExpandedUserAccessId(entry.id)
+  }
+
+  function updateUserAccessDraft(
+    entry: ManagedUserRecord,
+    updater: (draft: UserAccessDraft) => UserAccessDraft,
+  ) {
+    setUserAccessDrafts((current) => ({
+      ...current,
+      [entry.id]: updater(current[entry.id] || createUserAccessDraft(entry)),
+    }))
+  }
+
+  async function saveManagedUserAccessDraft(entry: ManagedUserRecord) {
+    const draft = userAccessDrafts[entry.id] || createUserAccessDraft(entry)
+
+    if (!userAccessDraftChanged(entry, draft)) {
+      setExpandedUserAccessId('')
+      removeUserAccessDraft(entry.id)
+      return
+    }
+
+    if (draft.role !== entry.role && !canUpdateCmsUserRole({
+      actorId: user.id,
+      actorRole: user.role,
+      nextRole: draft.role,
+      targetId: entry.id,
+      targetRole: entry.role,
+    })) {
+      setStatus({ kind: 'error', text: 'You cannot assign that role.' })
+      return
+    }
+
+    const savedFeatureVisibility = normalizeUserFeatureVisibility(entry.featureVisibility)
+    const featureVisibilityChanged = userFeatureVisibilityChanged(savedFeatureVisibility, draft.featureVisibility)
+
+    if (featureVisibilityChanged && !isSuperAdmin) {
+      setStatus({ kind: 'error', text: 'Only super admins can change feature visibility.' })
+      return
+    }
+
+    try {
+      setUpdatingUserId(entry.id)
+      setUpdatingUserFeaturesId(entry.id)
+
+      if (draft.role !== entry.role) {
+        const response = await fetch(`/api/users/${encodeURIComponent(entry.id)}`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ role: draft.role }),
+        })
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null
+
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Failed to update user role.')
+        }
+      }
+
+      if (featureVisibilityChanged && draft.role !== 'super_admin') {
+        const response = await fetch(`/api/users/${encodeURIComponent(entry.id)}/features`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(draft.featureVisibility),
+        })
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null
+
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Failed to update feature visibility.')
+        }
+      }
+
+      setStatus({ kind: 'info', text: `${entry.name}'s access was saved.` })
+      setExpandedUserAccessId('')
+      removeUserAccessDraft(entry.id)
+      await loadUsers()
+    } catch (error) {
+      setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to save user access.' })
+    } finally {
+      setUpdatingUserId('')
+      setUpdatingUserFeaturesId('')
     }
   }
 
@@ -1992,6 +3119,48 @@ export function AdminApp({ user }: { user: User }) {
       setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to update user role.' })
     } finally {
       setUpdatingUserId('')
+    }
+  }
+
+  async function updateManagedUserFeatureVisibility(
+    entry: ManagedUserRecord,
+    key: keyof UserFeatureVisibility,
+    value: boolean,
+  ) {
+    if (!isSuperAdmin) {
+      setStatus({ kind: 'error', text: 'Only super admins can change feature visibility.' })
+      return
+    }
+
+    const nextVisibility = {
+      ...(entry.featureVisibility || DEFAULT_USER_FEATURE_VISIBILITY),
+      [key]: value,
+    }
+
+    try {
+      setUpdatingUserFeaturesId(entry.id)
+      const response = await fetch(`/api/users/${encodeURIComponent(entry.id)}/features`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(nextVisibility),
+      })
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to update feature visibility.')
+      }
+
+      setManagedUsers((current) => current.map((item) => (
+        item.id === entry.id
+          ? { ...item, featureVisibility: nextVisibility }
+          : item
+      )))
+      setStatus({ kind: 'info', text: `${entry.name}'s feature visibility was updated.` })
+      await loadUsers()
+    } catch (error) {
+      setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to update feature visibility.' })
+    } finally {
+      setUpdatingUserFeaturesId('')
     }
   }
 
@@ -2035,7 +3204,7 @@ export function AdminApp({ user }: { user: User }) {
     window.location.href = '/admin/login'
   }
 
-  const currentMeta = TAB_META[tab]
+  const currentMeta = getTabMeta(tab)
   const staticPages = pages.filter((page) => !page.slug.startsWith('blog'))
   const pageStylesheetsInput = pageDraft ? pageDraft.stylesheets.join('\n') : ''
   const postCategoriesInput = postDraft ? postDraft.categories.map((entry) => entry.label).join(', ') : ''
@@ -2043,8 +3212,31 @@ export function AdminApp({ user }: { user: User }) {
   const productSpecNotesInput = productDraft ? productDraft.specNotes.join('\n') : ''
   const draftLoadingMessages = getAiDraftLoadingMessages(aiPostBuilder.generateImage)
   const activeDraftLoadingMessage = draftLoadingMessages[draftLoadingMessageIndex] || draftLoadingMessages[0]
+  const normalizedPageQuery = pageListQuery.trim().toLowerCase()
   const normalizedPostQuery = postListQuery.trim().toLowerCase()
   const normalizedProductQuery = productListQuery.trim().toLowerCase()
+  const visiblePages = [...staticPages]
+    .filter((page) => {
+      if (!normalizedPageQuery) {
+        return true
+      }
+      const searchable = [page.slug || 'home', page.title].join(' ').toLowerCase()
+      return searchable.includes(normalizedPageQuery)
+    })
+    .sort((left, right) => {
+      const leftLabel = left.slug || ''
+      const rightLabel = right.slug || ''
+      if (pageListSort === 'slug-desc') {
+        return compareStringsDescending(leftLabel, rightLabel)
+      }
+      if (pageListSort === 'published') {
+        return (
+          comparePublishedStatus(left.published, right.published) ||
+          compareStringsAscending(leftLabel, rightLabel)
+        )
+      }
+      return compareStringsAscending(leftLabel, rightLabel)
+    })
   const visiblePosts = [...posts]
     .filter((post) => {
       if (!normalizedPostQuery) {
@@ -2094,7 +3286,6 @@ export function AdminApp({ user }: { user: User }) {
         product.name,
         product.slug,
         product.categoryLabel,
-        product.familyName,
       ]
         .join(' ')
         .toLowerCase()
@@ -2164,244 +3355,424 @@ export function AdminApp({ user }: { user: User }) {
   ]
 
   return (
-    <div className={styles.app}>
-      <div className={styles.shell}>
-        <aside className={styles.sidebar}>
-          <div className={styles.brandBlock}>
-            <img alt="Clastro CMS" className={styles.brandLogo} src="/images/clastro-logo.svg" />
-            <a className={styles.versionBadge} href="/changelog" target="_blank" rel="noreferrer">
-              v{CLASTRO_VERSION}
-            </a>
+    <div
+      className={cn(
+        styles.app,
+        themeMode === 'dark' ? styles.themeDark : styles.themeLight,
+        themeMode === 'dark' && 'dark',
+        'bg-background text-foreground',
+      )}
+      data-theme={themeMode}
+    >
+      <div className="grid min-h-screen grid-cols-[18rem_minmax(0,1fr)]">
+        <aside className="sticky top-0 flex h-screen flex-col overflow-y-auto border-r border-white/10 bg-[#070f24] text-slate-200">
+          <div className="flex h-[5.5rem] shrink-0 items-center justify-center border-b border-white/10 px-4">
+            <img alt="Clastro CMS" className="block h-auto w-full max-w-[12rem]" src="/images/clastro-logo.svg" />
           </div>
 
-          <nav className={styles.nav}>
+          <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-5">
             {navSections.map((section) => (
-              <div className={styles.navGroup} key={section.label}>
-                <div className={styles.navGroupLabel}>{section.label}</div>
-                <div className={styles.navGroupItems}>
-                  {section.items.map((entry) => (
-                    <button
-                      className={[styles.navButton, tab === entry.key ? styles.navButtonActive : ''].join(' ')}
-                      key={entry.key}
-                      onClick={() => { void handleTabChange(entry.key) }}
-                      type="button"
-                    >
-                      {NAV_ICONS[entry.key]}
-                      <div className={styles.navButtonText}>
-                        <span className={styles.navButtonTitle}>{entry.label}</span>
-                        <span className={styles.navButtonMeta}>{entry.description}</span>
-                      </div>
-                    </button>
-                  ))}
+              <div key={section.label}>
+                <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  {section.label}
+                </div>
+                <div className="flex flex-col gap-1">
+                  {section.items.map((entry) => {
+                    const isActive = tab === entry.key
+                    return (
+                      <button
+                        className={cn(
+                          'group flex items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+                          isActive
+                            ? 'bg-cyan-400/15 text-cyan-50 ring-1 ring-inset ring-cyan-400/30'
+                            : 'text-slate-300 hover:bg-white/5 hover:text-white',
+                        )}
+                        key={entry.key}
+                        onClick={() => { void handleTabChange(entry.key) }}
+                        type="button"
+                      >
+                        <span
+                          className={cn(
+                            'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors',
+                            isActive
+                              ? 'bg-cyan-400/25 text-cyan-100'
+                              : 'bg-white/5 text-slate-300 group-hover:bg-cyan-400/10 group-hover:text-cyan-200',
+                          )}
+                        >
+                          {getNavIcon(entry.key)}
+                        </span>
+                        <span className="flex min-w-0 flex-col leading-tight">
+                          <span className="text-sm font-medium">{entry.label}</span>
+                          <span className="truncate text-xs text-slate-400">{entry.description}</span>
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             ))}
           </nav>
 
-          <div className={styles.sidebarFooter}>
-            <div className={styles.userCard}>
-              <strong>{user.name}</strong>
-              <span className={styles.userEmail} title={user.email}>{user.email}</span>
-              <span className={styles.userRole}>{formatUserRole(user.role)} access</span>
+          <div className="space-y-3 border-t border-white/10 px-3 py-4">
+            <a
+              className="inline-flex items-center self-start rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-cyan-200 transition hover:bg-cyan-400/20"
+              href="/changelog"
+              rel="noreferrer"
+              target="_blank"
+            >
+              v{CLASTRO_VERSION}
+            </a>
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+              <div className="truncate text-sm font-semibold text-white">{user.name}</div>
+              <div className="mt-0.5 truncate text-xs text-slate-400" title={user.email}>{user.email}</div>
+              <span className="mt-2 inline-flex rounded-full bg-cyan-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-cyan-200">
+                {formatUserRole(user.role)} access
+              </span>
             </div>
-            <button className={styles.logoutButton} onClick={logout} type="button">Log out</button>
+            <button
+              className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-200 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-100"
+              onClick={logout}
+              type="button"
+            >
+              Log out
+            </button>
           </div>
         </aside>
 
-        <main className={styles.content}>
-          <header className={styles.topbar}>
-            <div>
-              <h1 className={styles.pageTitle}>{currentMeta.title}</h1>
-              <p className={styles.pageDescription}>{currentMeta.description}</p>
+        <main className="flex min-h-screen flex-col bg-background">
+          <header className="sticky top-0 z-10 flex h-[5.5rem] shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-background/85 px-8 backdrop-blur">
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">{currentMeta.title}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">{currentMeta.description}</p>
             </div>
 
-            <div className={styles.topbarActions}>
-            {tab === 'dashboard' && (
-              <a
-                className={styles.secondaryButton}
-                href="/"
-                target="_blank"
-                rel="noreferrer"
+            <div className="flex flex-wrap items-center gap-2">
+              <div
+                aria-label="CMS colour theme"
+                className="inline-flex items-center rounded-md border border-border bg-muted p-0.5 text-xs"
+                role="group"
               >
-                View Website
-              </a>
-            )}
-            <a className={styles.secondaryButton} href="/admin/edit">
-              Edit Website
-            </a>
-            {tab === 'ai' && canViewAi && (
-              <button className={styles.primaryButton} onClick={saveAiSettings} type="button">Save AI Settings</button>
-            )}
-            {tab === 'settings' && (
-              <button className={styles.primaryButton} onClick={saveSettings} type="button">Save Settings</button>
-            )}
-            {tab === 'posts' && canViewBlog && (
-              <>
-                {canUseAiBlogBuilder && (
-                  <button
-                    className={styles.secondaryButton}
-                    onClick={() => {
-                      setAiPostBuilder((current) => ({ ...current, open: !current.open }))
-                    }}
-                    type="button"
-                  >
-                    AI Blog Post
-                  </button>
-                )}
                 <button
-                  className={styles.primaryButton}
-                  onClick={() => {
-                    setPostDraft(createBlankPostDraft())
-                    setActivePostSlug('')
-                    setAiPostBuilder((current) => ({
-                      ...current,
-                      open: false,
-                      titleIdeas: [],
-                      selectedTitle: '',
-                    }))
-                  }}
+                  aria-pressed={themeMode === 'light'}
+                  className={cn(
+                    'rounded px-3 py-1 font-medium transition',
+                    themeMode === 'light'
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                  onClick={() => setThemeMode('light')}
                   type="button"
                 >
-                  Add Post
+                  Light
                 </button>
-              </>
-            )}
-            {tab === 'products' && (
-              <button
-                className={styles.primaryButton}
-                onClick={() => { void handleAddProduct() }}
-                type="button"
-              >
-                Add Product
-              </button>
-            )}
+                <button
+                  aria-pressed={themeMode === 'dark'}
+                  className={cn(
+                    'rounded px-3 py-1 font-medium transition',
+                    themeMode === 'dark'
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                  onClick={() => setThemeMode('dark')}
+                  type="button"
+                >
+                  Dark
+                </button>
+              </div>
+
+              {tab === 'dashboard' && (
+                <Button asChild size="sm" variant="outline">
+                  <a href="/" rel="noreferrer" target="_blank">View Website</a>
+                </Button>
+              )}
+              <Button asChild size="sm" variant="outline">
+                <a href="/admin/edit">Edit Website</a>
+              </Button>
+              {tab === 'ai' && canViewAi && (
+                <Button onClick={saveAiSettings} size="sm" type="button">Save AI Settings</Button>
+              )}
+              {tab === 'settings' && (
+                <Button onClick={saveSettings} size="sm" type="button">Save Settings</Button>
+              )}
+              {tab === 'email' && (
+                <Button disabled={savingEmailSettings} onClick={() => { void saveEmailSettings() }} size="sm" type="button">
+                  {savingEmailSettings ? 'Saving…' : 'Save Email Settings'}
+                </Button>
+              )}
+              {tab === 'posts' && canViewBlog && (
+                <>
+                  {canUseAiBlogBuilder && (
+                    <Button
+                      onClick={() => {
+                        setAiPostBuilder((current) => ({ ...current, open: !current.open }))
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      AI Blog Post
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => {
+                      setPostDraft(createBlankPostDraft())
+                      setActivePostSlug('')
+                      setAiPostBuilder((current) => ({
+                        ...current,
+                        open: false,
+                        titleIdeas: [],
+                        selectedTitle: '',
+                      }))
+                    }}
+                    size="sm"
+                    type="button"
+                  >
+                    Add Post
+                  </Button>
+                </>
+              )}
+              {tab === 'products' && (
+                <Button onClick={() => { void handleAddProduct() }} size="sm" type="button">
+                  Add Product
+                </Button>
+              )}
+              {isContentItemTab(tab) && (() => {
+                const typeSlug = contentTypeSlugFromTab(tab)
+                const def = CONTENT_TYPE_DEFINITIONS.find((entry) => entry.slug === typeSlug)
+                if (!def) {
+                  return null
+                }
+                return (
+                  <Button onClick={() => startNewContentItem(typeSlug)} size="sm" type="button">
+                    Add {def.label}
+                  </Button>
+                )
+              })()}
             </div>
           </header>
 
-          {status && (
-            <div className={[styles.status, status.kind === 'error' ? styles.statusError : styles.statusInfo].join(' ')}>
-              {status.text}
-            </div>
-          )}
-
-          {tab === 'dashboard' && (
-            <section className={styles.dashboard}>
-              <div className={styles.statGrid}>
-                {stats.map((item) => (
-                  <article className={styles.statCard} key={item.label}>
-                    <div className={styles.statIcon}>{item.icon}</div>
-                    <span className={styles.statLabel}>{item.label}</span>
-                    <strong className={styles.statValue}>{item.value}</strong>
-                    <span className={styles.statMeta}>{item.detail}</span>
-                  </article>
-                ))}
+          <div className="flex-1 px-8 py-6">
+            {status && (
+              <div
+                className={cn(
+                  'mb-6 rounded-lg border px-4 py-3 text-sm',
+                  status.kind === 'error'
+                    ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                    : 'border-cyan-400/30 bg-cyan-400/10 text-cyan-900 dark:text-cyan-200',
+                )}
+              >
+                {status.text}
               </div>
+            )}
 
-              <div className={styles.dashboardGrid}>
-                <section className={styles.sectionCard}>
-                  <div className={styles.sectionCardHeader}>
-                    <h2>Quick Actions</h2>
-                  </div>
-                  <div className={styles.quickActions}>
-                    <button className={styles.quickAction} onClick={() => { void handleTabChange('pages') }} type="button">
-                      <div className={styles.quickActionIcon}><IconPages /></div>
-                      <div className={styles.quickActionBody}>
-                        <strong>Edit Pages</strong>
-                        <span>Update existing page copy with the WYSIWYG editor.</span>
-                      </div>
-                      <IconArrowRight />
-                    </button>
-                    <a className={styles.quickAction} href="/admin/edit">
-                      <div className={styles.quickActionIcon}><IconPosts /></div>
-                      <div className={styles.quickActionBody}>
-                        <strong>Launch Live Editor</strong>
-                        <span>Open the visual page editor with live preview.</span>
-                      </div>
-                      <IconArrowRight />
-                    </a>
-                    {canViewBlog && (
-                      <button className={styles.quickAction} onClick={() => { void handleTabChange('posts') }} type="button">
-                        <div className={styles.quickActionIcon}><IconPosts /></div>
-                        <div className={styles.quickActionBody}>
-                          <strong>Manage Blog</strong>
-                          <span>Create or revise blog posts and metadata.</span>
-                        </div>
-                        <IconArrowRight />
-                      </button>
-                    )}
-                    <button className={styles.quickAction} onClick={() => { void handleTabChange('products') }} type="button">
-                      <div className={styles.quickActionIcon}><IconProducts /></div>
-                      <div className={styles.quickActionBody}>
-                        <strong>Manage Products</strong>
-                        <span>Edit demo products, specs, pricing, and long-form copy.</span>
-                      </div>
-                      <IconArrowRight />
-                    </button>
-                    <button className={styles.quickAction} onClick={() => { void handleTabChange('media') }} type="button">
-                      <div className={styles.quickActionIcon}><IconMedia /></div>
-                      <div className={styles.quickActionBody}>
-                        <strong>Media Library</strong>
-                        <span>Upload assets and manage image URLs.</span>
-                      </div>
-                      <IconArrowRight />
-                    </button>
-                    <button className={styles.quickAction} onClick={() => { void handleTabChange('settings') }} type="button">
-                      <div className={styles.quickActionIcon}><IconSettings /></div>
-                      <div className={styles.quickActionBody}>
-                        <strong>Site Settings</strong>
-                        <span>Navigation, footer, booking, and SEO defaults.</span>
-                      </div>
-                      <IconArrowRight />
-                    </button>
-                    {canViewAi && (
-                      <button className={styles.quickAction} onClick={() => { void handleTabChange('ai') }} type="button">
-                        <div className={styles.quickActionIcon}><IconAi /></div>
-                        <div className={styles.quickActionBody}>
-                          <strong>AI Settings</strong>
-                          <span>API keys, prompts, and automation defaults.</span>
-                        </div>
-                        <IconArrowRight />
-                      </button>
-                    )}
-                    {canManageUsers && (
-                      <button className={styles.quickAction} onClick={() => { void handleTabChange('users') }} type="button">
-                        <div className={styles.quickActionIcon}><IconUsers /></div>
-                        <div className={styles.quickActionBody}>
-                          <strong>Manage Users</strong>
-                          <span>Create invite links and control who can edit this site.</span>
-                        </div>
-                        <IconArrowRight />
-                      </button>
-                    )}
-                    {isSuperAdmin && (
-                      <button className={styles.quickAction} onClick={() => { void handleTabChange('linkedin') }} type="button">
-                        <div className={styles.quickActionIcon}><IconLinkedIn /></div>
-                        <div className={styles.quickActionBody}>
-                          <strong>LinkedIn</strong>
-                          <span>Store app credentials and publishing defaults.</span>
-                        </div>
-                        <IconArrowRight />
-                      </button>
-                    )}
-                  </div>
-                </section>
+          {tab === 'dashboard' && (() => {
+            type QuickAction = {
+              description: string
+              href?: string
+              icon: ReactNode
+              key: string
+              onClick?: () => void
+              title: string
+            }
 
-                <section className={styles.sectionCard}>
-                  <div className={styles.sectionCardHeader}>
-                    <h2>Model Summary</h2>
-                  </div>
-                  <ul className={styles.summaryList}>
-                    <li>Pages are stored as structured records with locked frontend layout.</li>
-                    <li>Blog posts remain a dedicated repeated content type.</li>
-                    <li>Media records are stored in D1 with file objects handled separately.</li>
-                    <li>Shared navigation, footer, and booking content live under site settings.</li>
-                    <li>AI automations can be configured separately with provider keys and reusable prompt templates.</li>
-                    <li>Social publishing credentials can be stored separately so secrets never leak into public site settings.</li>
-                  </ul>
-                </section>
+            const quickActions: QuickAction[] = [
+              {
+                description: 'Update existing page copy with the WYSIWYG editor.',
+                icon: <IconPages />,
+                key: 'pages',
+                onClick: () => { void handleTabChange('pages') },
+                title: 'Edit Pages',
+              },
+              {
+                description: 'Open the visual page editor with live preview.',
+                href: '/admin/edit',
+                icon: <IconPosts />,
+                key: 'live-editor',
+                title: 'Launch Live Editor',
+              },
+              ...(canViewBlog
+                ? [{
+                    description: 'Create or revise blog posts and metadata.',
+                    icon: <IconPosts />,
+                    key: 'posts',
+                    onClick: () => { void handleTabChange('posts') },
+                    title: 'Manage Blog',
+                  }]
+                : []),
+              {
+                description: 'Edit demo products, specs, pricing, and long-form copy.',
+                icon: <IconProducts />,
+                key: 'products',
+                onClick: () => { void handleTabChange('products') },
+                title: 'Manage Products',
+              },
+              {
+                description: 'Upload assets and manage image URLs.',
+                icon: <IconMedia />,
+                key: 'media',
+                onClick: () => { void handleTabChange('media') },
+                title: 'Media Library',
+              },
+              {
+                description: 'Site identity, contact details, and social preview defaults.',
+                icon: <IconSettings />,
+                key: 'settings',
+                onClick: () => { void handleTabChange('settings') },
+                title: 'Site Settings',
+              },
+              ...(canViewAi
+                ? [{
+                    description: 'API keys, prompts, and automation defaults.',
+                    icon: <IconAi />,
+                    key: 'ai',
+                    onClick: () => { void handleTabChange('ai') },
+                    title: 'AI Settings',
+                  }]
+                : []),
+              ...(canManageUsers
+                ? [{
+                    description: 'Create invite links and control who can edit this site.',
+                    icon: <IconUsers />,
+                    key: 'users',
+                    onClick: () => { void handleTabChange('users') },
+                    title: 'Manage Users',
+                  }]
+                : []),
+              ...(canViewLinkedIn
+                ? [{
+                    description: 'Store app credentials and publishing defaults.',
+                    icon: <IconLinkedIn />,
+                    key: 'linkedin',
+                    onClick: () => { void handleTabChange('linkedin') },
+                    title: 'LinkedIn',
+                  }]
+                : []),
+            ]
+
+            const [latestRelease, ...priorReleases] = CLASTRO_CHANGELOG
+
+            return (
+              <div className="space-y-6">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                  {stats.map((item) => (
+                    <Card className="transition-colors hover:border-cyan-400/30" key={item.label}>
+                      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+                        <div className="space-y-1">
+                          <CardDescription className="text-[11px] font-semibold uppercase tracking-[0.12em]">
+                            {item.label}
+                          </CardDescription>
+                          <div className="text-3xl font-bold leading-none tracking-tight text-foreground">
+                            {item.value}
+                          </div>
+                        </div>
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                          {item.icon}
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-xs text-muted-foreground">{item.detail}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <div className="grid gap-8 lg:grid-cols-3">
+                  <section className="space-y-4 lg:col-span-2">
+                    <div className="space-y-1">
+                      <h2 className="text-base font-semibold tracking-tight text-foreground">Quick Actions</h2>
+                      <p className="text-sm text-muted-foreground">Jump straight into the most common admin flows.</p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {quickActions.map((action) => {
+                        const inner = (
+                          <>
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground transition-colors group-hover:text-primary">
+                              {action.icon}
+                            </span>
+                            <span className="flex min-w-0 flex-1 flex-col gap-1 text-left">
+                              <span className="text-sm font-semibold text-foreground">{action.title}</span>
+                              <span className="text-xs text-muted-foreground">{action.description}</span>
+                            </span>
+                            <span className="text-muted-foreground transition-colors group-hover:text-primary">
+                              <IconArrowRight />
+                            </span>
+                          </>
+                        )
+                        const className = 'group flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-all hover:border-cyan-400/30 hover:bg-accent/60'
+                        return action.href
+                          ? (
+                              <a className={className} href={action.href} key={action.key}>
+                                {inner}
+                              </a>
+                            )
+                          : (
+                              <button className={className} key={action.key} onClick={action.onClick} type="button">
+                                {inner}
+                              </button>
+                            )
+                      })}
+                    </div>
+                  </section>
+
+                  <section className="space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <h2 className="text-base font-semibold tracking-tight text-foreground">What&apos;s New</h2>
+                        <p className="text-sm text-muted-foreground">Latest Clastro release notes.</p>
+                      </div>
+                      <a
+                        className="text-xs font-medium text-primary hover:underline"
+                        href="/changelog"
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        View all →
+                      </a>
+                    </div>
+
+                    <div className="max-h-[28rem] space-y-4 overflow-y-auto pr-1">
+                      <article className="rounded-lg border border-cyan-400/25 bg-accent/40 p-4">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <h3 className="text-sm font-semibold text-foreground">v{latestRelease.version}</h3>
+                          <span className="inline-flex items-center rounded-full bg-cyan-400/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-cyan-200">
+                            Latest
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{latestRelease.date}</p>
+                        <p className="mt-2 text-sm text-foreground">{latestRelease.summary}</p>
+                        <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                          {latestRelease.changes.map((change) => (
+                            <li className="flex gap-2.5" key={change}>
+                              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                              <span>{change}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </article>
+
+                      {priorReleases.map((entry) => (
+                        <article className="rounded-lg border border-border p-4" key={entry.version}>
+                          <div className="flex items-baseline justify-between gap-3">
+                            <h3 className="text-sm font-semibold text-foreground">v{entry.version}</h3>
+                            <span className="text-xs text-muted-foreground">{entry.date}</span>
+                          </div>
+                          <p className="mt-2 text-sm text-foreground">{entry.summary}</p>
+                          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                            {entry.changes.map((change) => (
+                              <li className="flex gap-2.5" key={change}>
+                                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/60" />
+                                <span>{change}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                </div>
               </div>
-            </section>
-          )}
+            )
+          })()}
 
           {tab === 'ai' && canViewAi && (
             <section className={styles.formStack}>
@@ -2418,38 +3789,46 @@ export function AdminApp({ user }: { user: User }) {
                       placeholder="openai"
                     />
                   </label>
-                  <label className={styles.field}>
-                    <span>API Key</span>
-                    <input
-                      type="password"
-                      autoComplete="off"
-                      value={aiSettingsDraft.apiKey}
-                      onChange={(event) =>
-                        setAiSettingsDraft((current) => ({
-                          ...current,
-                          apiKey: event.target.value,
-                          clearApiKey: false,
-                        }))}
-                      placeholder={aiSettingsDraft.hasApiKey ? "Enter a new key to replace the stored key" : "sk-..."}
-                    />
+                  <div className={styles.field}>
+                    <span id="ai-api-key-label">API Key</span>
+                    <div className={styles.apiKeyControl}>
+                      <div className={styles.apiKeyInputRow}>
+                        <input
+                          aria-labelledby="ai-api-key-label"
+                          type="password"
+                          autoComplete="off"
+                          value={aiSettingsDraft.apiKey}
+                          onChange={(event) =>
+                            setAiSettingsDraft((current) => ({
+                              ...current,
+                              apiKey: event.target.value,
+                              clearApiKey: false,
+                            }))}
+                          placeholder={aiSettingsDraft.hasApiKey ? "Enter a new key to replace the stored key" : "sk-..."}
+                        />
+                        <button
+                          className={[styles.secondaryButton, styles.apiKeyClearButton].join(' ')}
+                          disabled={!aiSettingsDraft.hasApiKey || aiSettingsDraft.clearApiKey}
+                          onClick={() =>
+                            setAiSettingsDraft((current) => ({
+                              ...current,
+                              apiKey: '',
+                              clearApiKey: true,
+                            }))}
+                          type="button"
+                        >
+                          Clear key
+                        </button>
+                      </div>
+                    </div>
                     <small className={styles.fieldHint}>
-                      {aiSettingsDraft.hasApiKey
-                        ? 'A key is already stored. It is never shown again in the admin UI. Leave this blank to keep it unchanged.'
-                        : 'Stored server-side only. The raw key is never returned to the browser after saving.'}
+                      {aiSettingsDraft.clearApiKey
+                        ? 'The stored key will be cleared when you save AI settings.'
+                        : aiSettingsDraft.hasApiKey
+                          ? 'A key is already stored and is never shown again. If you wish to update your key, paste a new key here and save AI settings. Leave this blank to keep the stored key.'
+                          : 'Stored server-side only. If you wish to update your key later, paste a new key here and save AI settings.'}
                     </small>
-                  </label>
-                  <label className={styles.field}>
-                    <span className={styles.toggleLabel}>
-                      <input
-                        checked={aiSettingsDraft.clearApiKey}
-                        className={styles.toggleInput}
-                        disabled={!aiSettingsDraft.hasApiKey}
-                        onChange={(event) => setAiSettingsDraft((current) => ({ ...current, clearApiKey: event.target.checked }))}
-                        type="checkbox"
-                      />
-                      Clear stored API key
-                    </span>
-                  </label>
+                  </div>
                   <label className={[styles.field, styles.fieldWide].join(' ')}>
                     <span>Shared Brand Prompt</span>
                     <textarea
@@ -2621,47 +4000,6 @@ export function AdminApp({ user }: { user: User }) {
 
           {tab === 'settings' && (
             <section className={styles.formStack}>
-              {isSuperAdmin && (
-                <section className={styles.sectionCard}>
-                  <div className={styles.sectionCardHeader}>
-                    <h2>Super Admin Controls</h2>
-                    <button className={styles.secondaryButton} onClick={saveFeatureFlags} type="button">
-                      Save Visibility
-                    </button>
-                  </div>
-                  <div className={styles.grid}>
-                    <label className={[styles.field, styles.fieldWide].join(' ')}>
-                      <span className={styles.toggleLabel}>
-                        <input
-                          checked={featureFlagsDraft.showAiDashboard}
-                          className={styles.toggleInput}
-                          onChange={(event) => setFeatureFlagsDraft((current) => ({
-                            ...current,
-                            showAiDashboard: event.target.checked,
-                          }))}
-                          type="checkbox"
-                        />
-                        Show AI dashboard and AI settings to non-super-admin logins
-                      </span>
-                    </label>
-                    <label className={[styles.field, styles.fieldWide].join(' ')}>
-                      <span className={styles.toggleLabel}>
-                        <input
-                          checked={featureFlagsDraft.showBlog}
-                          className={styles.toggleInput}
-                          onChange={(event) => setFeatureFlagsDraft((current) => ({
-                            ...current,
-                            showBlog: event.target.checked,
-                          }))}
-                          type="checkbox"
-                        />
-                        Show blog management and AI blog tools to non-super-admin logins
-                      </span>
-                    </label>
-                  </div>
-                </section>
-              )}
-
               <section className={styles.sectionCard}>
                 <div className={styles.sectionCardHeader}>
                   <h2>General</h2>
@@ -2683,29 +4021,61 @@ export function AdminApp({ user }: { user: User }) {
                     <span>Contact phone</span>
                     <input value={settingsDraft.contactPhone} onChange={(event) => setSettingsDraft((current) => ({ ...current, contactPhone: event.target.value }))} />
                   </label>
-                  <label className={[styles.field, styles.fieldWide].join(' ')}>
-                    <span>Default OG image URL</span>
-                    <input value={settingsDraft.defaultOgImage} onChange={(event) => setSettingsDraft((current) => ({ ...current, defaultOgImage: event.target.value }))} />
-                  </label>
                 </div>
               </section>
 
               <section className={styles.sectionCard}>
                 <div className={styles.sectionCardHeader}>
-                  <h2>Structured JSON</h2>
+                  <h2>Brand & Sharing</h2>
                 </div>
                 <div className={styles.grid}>
-                  <label className={[styles.field, styles.fieldWide].join(' ')}>
-                    <span>Navigation JSON</span>
-                    <textarea value={settingsDraft.navigationJson} onChange={(event) => setSettingsDraft((current) => ({ ...current, navigationJson: event.target.value }))} />
+                  <div className={styles.brandAssetGrid}>
+                    <BrandAssetField
+                      accept=".svg,.png,.ico,image/svg+xml,image/png,image/x-icon,image/vnd.microsoft.icon"
+                      description="Small browser tab icon. Upload once and Clastro stores it in the media library."
+                      id="settings-favicon-upload"
+                      label="Favicon"
+                      onUpload={(file) => { void uploadSettingsAsset('faviconUrl', file, 'Favicon') }}
+                      recommendation="Recommended: SVG, PNG, or ICO; 32 x 32 px minimum; keep it simple and square."
+                      uploading={uploadingSettingsAsset === 'faviconUrl'}
+                      value={settingsDraft.faviconUrl}
+                    />
+                    <BrandAssetField
+                      accept="image/*"
+                      description="Used when someone saves the site to a phone or tablet home screen."
+                      id="settings-apple-touch-icon-upload"
+                      label="Apple touch icon"
+                      onUpload={(file) => { void uploadSettingsAsset('appleTouchIconUrl', file, 'Apple touch icon') }}
+                      recommendation="Recommended: 180 x 180 px PNG; square with clear padding for mobile home screens."
+                      uploading={uploadingSettingsAsset === 'appleTouchIconUrl'}
+                      value={settingsDraft.appleTouchIconUrl}
+                    />
+                    <BrandAssetField
+                      accept="image/*"
+                      description="Default image for social previews when a page does not set its own image."
+                      id="settings-social-share-image-upload"
+                      label="Social share image"
+                      onUpload={(file) => { void uploadSettingsAsset('defaultOgImage', file, 'Social share image') }}
+                      previewShape="wide"
+                      recommendation="Recommended: 1200 x 630 px JPG or PNG; keep key text and logos centred."
+                      uploading={uploadingSettingsAsset === 'defaultOgImage'}
+                      value={settingsDraft.defaultOgImage}
+                    />
+                  </div>
+                  <label className={styles.field}>
+                    <span>Browser theme colour</span>
+                    <input value={settingsDraft.themeColor} onChange={(event) => setSettingsDraft((current) => ({ ...current, themeColor: event.target.value }))} placeholder="#020024" />
+                    <small className={styles.fieldHint}>Used by supporting mobile browsers for the top browser bar.</small>
                   </label>
                   <label className={[styles.field, styles.fieldWide].join(' ')}>
-                    <span>Footer JSON</span>
-                    <textarea value={settingsDraft.footerJson} onChange={(event) => setSettingsDraft((current) => ({ ...current, footerJson: event.target.value }))} />
+                    <span>Default social share title</span>
+                    <input value={settingsDraft.socialShareTitle} onChange={(event) => setSettingsDraft((current) => ({ ...current, socialShareTitle: event.target.value }))} />
+                    <small className={styles.fieldHint}>Fallback title for social previews when a page does not provide a specific one.</small>
                   </label>
                   <label className={[styles.field, styles.fieldWide].join(' ')}>
-                    <span>Booking modal JSON</span>
-                    <textarea value={settingsDraft.bookingJson} onChange={(event) => setSettingsDraft((current) => ({ ...current, bookingJson: event.target.value }))} />
+                    <span>Default social share description</span>
+                    <textarea value={settingsDraft.socialShareDescription} onChange={(event) => setSettingsDraft((current) => ({ ...current, socialShareDescription: event.target.value }))} />
+                    <small className={styles.fieldHint}>Fallback description for Open Graph and social cards.</small>
                   </label>
                 </div>
               </section>
@@ -2743,7 +4113,13 @@ export function AdminApp({ user }: { user: User }) {
                   <label className={styles.field}>
                     <span>Role</span>
                     <select
-                      onChange={(event) => setInviteDraft((current) => ({ ...current, role: event.target.value as UserRole }))}
+                      onChange={(event) => setInviteDraft((current) => ({
+                        ...current,
+                        featureVisibility: event.target.value === 'super_admin'
+                          ? DEFAULT_USER_FEATURE_VISIBILITY
+                          : current.featureVisibility,
+                        role: event.target.value as UserRole,
+                      }))}
                       value={inviteDraft.role}
                     >
                       {CMS_ROLE_OPTIONS
@@ -2752,8 +4128,65 @@ export function AdminApp({ user }: { user: User }) {
                           <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
                     </select>
-                    <small className={styles.fieldHint}>Invite links are one-time setup links. Site owners can invite editors and collaborators.</small>
                   </label>
+                  <div className={cn(styles.fieldWide, 'space-y-3')}>
+                    <div className="space-y-1">
+                      <strong className="text-sm font-semibold text-foreground">Select user access</strong>
+                      <small className={styles.fieldHint}>
+                        Configure access before creating the invite link, so the client sees the right CMS tools on first login.
+                      </small>
+                    </div>
+                    {inviteDraft.role === 'super_admin' ? (
+                      <small className={styles.fieldHint}>
+                        Super admin invites always include every CMS tool.
+                      </small>
+                    ) : (
+                      <div className={styles.visibilityToggleGrid}>
+                        <label className={styles.visibilityToggle}>
+                          <input
+                            checked={inviteDraft.featureVisibility.showAiSettings}
+                            onChange={(event) => setInviteDraft((current) => ({
+                              ...current,
+                              featureVisibility: {
+                                ...current.featureVisibility,
+                                showAiSettings: event.target.checked,
+                              },
+                            }))}
+                            type="checkbox"
+                          />
+                          Show AI settings
+                        </label>
+                        <label className={styles.visibilityToggle}>
+                          <input
+                            checked={inviteDraft.featureVisibility.showAiBlogTools}
+                            onChange={(event) => setInviteDraft((current) => ({
+                              ...current,
+                              featureVisibility: {
+                                ...current.featureVisibility,
+                                showAiBlogTools: event.target.checked,
+                              },
+                            }))}
+                            type="checkbox"
+                          />
+                          Show AI blog tools
+                        </label>
+                        <label className={styles.visibilityToggle}>
+                          <input
+                            checked={inviteDraft.featureVisibility.showLinkedIn}
+                            onChange={(event) => setInviteDraft((current) => ({
+                              ...current,
+                              featureVisibility: {
+                                ...current.featureVisibility,
+                                showLinkedIn: event.target.checked,
+                              },
+                            }))}
+                            type="checkbox"
+                          />
+                          Show LinkedIn tools
+                        </label>
+                      </div>
+                    )}
+                  </div>
                   <div className={[styles.field, styles.inviteActions].join(' ')}>
                     <span>Actions</span>
                     <div className={styles.buttonRow}>
@@ -2763,28 +4196,13 @@ export function AdminApp({ user }: { user: User }) {
                         onClick={() => { void createInvitation() }}
                         type="button"
                       >
-                        {creatingInvitation ? 'Creating…' : 'Create Invite Link'}
+                        {creatingInvitation ? 'Creating…' : 'Create Configured Invite Link'}
                       </button>
                     </div>
                   </div>
-                  {generatedInviteUrl && (
-                    <div className={[styles.field, styles.fieldWide, styles.inviteLinkCard].join(' ')}>
-                      <span>Latest invite link</span>
-                      <div className={styles.inviteLinkRow}>
-                        <input readOnly value={generatedInviteUrl} />
-                        <button
-                          className={styles.secondaryButton}
-                          onClick={() => { void copyToClipboard(generatedInviteUrl, 'Invite link copied.') }}
-                          type="button"
-                        >
-                          Copy Link
-                        </button>
-                      </div>
-                      <small className={styles.fieldHint}>
-                        This link lets the invited person set their password and log into the CMS.
-                      </small>
-                    </div>
-                  )}
+                  <p className={[styles.fieldWide, styles.inviteHelpText].join(' ')}>
+                    Invite links are one-time setup links. Site owners can invite editors and collaborators.
+                  </p>
                 </div>
               </section>
 
@@ -2804,6 +4222,11 @@ export function AdminApp({ user }: { user: User }) {
                     const roleOptions = canDeleteEntry
                       ? CMS_ROLE_OPTIONS.filter((option) => assignableRolesFor(user.role).includes(option.value))
                       : CMS_ROLE_OPTIONS.filter((option) => option.value === entry.role)
+                    const isExpanded = expandedUserAccessId === entry.id
+                    const draft = userAccessDrafts[entry.id] || createUserAccessDraft(entry)
+                    const hasUserAccessChanges = userAccessDraftChanged(entry, draft)
+                    const canEditFeatureVisibility = isSuperAdmin && draft.role !== 'super_admin'
+                    const isSavingUserAccess = updatingUserId === entry.id || updatingUserFeaturesId === entry.id
 
                     return (
                       <article className={styles.userAccessCard} key={entry.id}>
@@ -2818,35 +4241,136 @@ export function AdminApp({ user }: { user: User }) {
                           ].join(' ')}>
                             {formatUserRole(entry.role)}
                           </span>
-                        </div>
-                        <div className={styles.userAccessControls}>
-                          <label className={styles.field}>
-                            <span>Role</span>
-                            <select
-                              className={styles.roleSelect}
-                              disabled={!canDeleteEntry || updatingUserId === entry.id}
-                              onChange={(event) => { void updateManagedUserRole(entry, event.target.value as UserRole) }}
-                              value={entry.role}
+                          {isExpanded && hasUserAccessChanges ? (
+                            <button
+                              aria-label={`Save changes for ${entry.name}`}
+                              className={styles.userAccessSaveButton}
+                              disabled={isSavingUserAccess}
+                              onClick={() => void saveManagedUserAccessDraft(entry)}
+                              type="button"
                             >
-                              {roleOptions.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <button
-                            className={styles.dangerButton}
-                            disabled={!canDeleteEntry || deletingUserId === entry.id}
-                            onClick={() => { void deleteManagedUser(entry) }}
-                            type="button"
-                          >
-                            {deletingUserId === entry.id ? 'Deleting…' : 'Delete User'}
-                          </button>
+                              {isSavingUserAccess ? 'Saving...' : 'Save changes'}
+                            </button>
+                          ) : (
+                            <button
+                              aria-label={isExpanded ? `Done editing ${entry.name}` : `Edit access for ${entry.name}`}
+                              className={styles.userAccessIconButton}
+                              disabled={isSavingUserAccess}
+                              onClick={() => {
+                                if (!isExpanded) {
+                                  openUserAccessEditor(entry)
+                                  return
+                                }
+
+                                setExpandedUserAccessId('')
+                                removeUserAccessDraft(entry.id)
+                              }}
+                              title={isExpanded ? 'Done editing' : 'Edit access'}
+                              type="button"
+                            >
+                              <IconEditSmall />
+                            </button>
+                          )}
                         </div>
-                        <small className={styles.fieldHint}>
-                          Added {new Date(entry.createdAt).toLocaleDateString()}
-                          {!canDeleteEntry && entry.role === 'super_admin' ? ' · Super admin access is protected.' : ''}
-                          {!canDeleteEntry && entry.id === user.id ? ' · This is your current login.' : ''}
-                        </small>
+                        {isExpanded && (
+                          <div className={styles.userAccessPanel}>
+                            <div className={styles.userAccessControls}>
+                              <label className={styles.field}>
+                                <span>Role</span>
+                                <select
+                                  className={styles.roleSelect}
+                                  disabled={!canDeleteEntry || isSavingUserAccess}
+                                  onChange={(event) => updateUserAccessDraft(entry, (current) => ({
+                                    ...current,
+                                    featureVisibility: event.target.value === 'super_admin'
+                                      ? DEFAULT_USER_FEATURE_VISIBILITY
+                                      : current.featureVisibility,
+                                    role: event.target.value as UserRole,
+                                  }))}
+                                  value={draft.role}
+                                >
+                                  {roleOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>{option.label}</option>
+                                  ))}
+                                </select>
+                              </label>
+                              <button
+                                className={styles.dangerButton}
+                                disabled={!canDeleteEntry || deletingUserId === entry.id}
+                                onClick={() => { void deleteManagedUser(entry) }}
+                                type="button"
+                              >
+                                {deletingUserId === entry.id ? 'Deleting…' : 'Delete User'}
+                              </button>
+                            </div>
+                            <div className={styles.userFeatureVisibility}>
+                              <span>Feature visibility</span>
+                              {canEditFeatureVisibility ? (
+                                <>
+                                  <div className={styles.visibilityToggleGrid}>
+                                    <label className={styles.visibilityToggle}>
+                                      <input
+                                        checked={draft.featureVisibility.showAiSettings}
+                                        disabled={isSavingUserAccess}
+                                        onChange={(event) => updateUserAccessDraft(entry, (current) => ({
+                                          ...current,
+                                          featureVisibility: {
+                                            ...current.featureVisibility,
+                                            showAiSettings: event.target.checked,
+                                          },
+                                        }))}
+                                        type="checkbox"
+                                      />
+                                      Show AI settings
+                                    </label>
+                                    <label className={styles.visibilityToggle}>
+                                      <input
+                                        checked={draft.featureVisibility.showAiBlogTools}
+                                        disabled={isSavingUserAccess}
+                                        onChange={(event) => updateUserAccessDraft(entry, (current) => ({
+                                          ...current,
+                                          featureVisibility: {
+                                            ...current.featureVisibility,
+                                            showAiBlogTools: event.target.checked,
+                                          },
+                                        }))}
+                                        type="checkbox"
+                                      />
+                                      Show AI blog tools
+                                    </label>
+                                    <label className={styles.visibilityToggle}>
+                                      <input
+                                        checked={draft.featureVisibility.showLinkedIn}
+                                        disabled={isSavingUserAccess}
+                                        onChange={(event) => updateUserAccessDraft(entry, (current) => ({
+                                          ...current,
+                                          featureVisibility: {
+                                            ...current.featureVisibility,
+                                            showLinkedIn: event.target.checked,
+                                          },
+                                        }))}
+                                        type="checkbox"
+                                      />
+                                      Show LinkedIn tools
+                                    </label>
+                                  </div>
+                                  <small className={styles.fieldHint}>
+                                    Controls what this login can see in the CMS. Role permissions still apply.
+                                  </small>
+                                </>
+                              ) : (
+                                <small className={styles.fieldHint}>
+                                  Super admin logins always see every CMS tool. Visibility toggles apply to site owners, editors, and collaborators.
+                                </small>
+                              )}
+                            </div>
+                            <small className={styles.fieldHint}>
+                              Added {new Date(entry.createdAt).toLocaleDateString()}
+                              {!canDeleteEntry && entry.role === 'super_admin' ? ' · Super admin access is protected.' : ''}
+                              {!canDeleteEntry && entry.id === user.id ? ' · This is your current login.' : ''}
+                            </small>
+                          </div>
+                        )}
                       </article>
                     )
                   })}
@@ -2860,31 +4384,79 @@ export function AdminApp({ user }: { user: User }) {
                 </div>
                 {userInvitations.length ? (
                   <div className={styles.userAccessList}>
-                    {userInvitations.map((entry) => (
-                      <article className={styles.userAccessCard} key={entry.id}>
-                        <div className={styles.userAccessHeader}>
-                          <div>
-                            <strong>{entry.name}</strong>
-                            <span>{entry.email} · {formatUserRole(entry.role)}</span>
+                    {userInvitations.map((entry) => {
+                      const featureVisibility = entry.featureVisibility || DEFAULT_USER_FEATURE_VISIBILITY
+                      const hasFreshInviteLink = generatedInviteId === entry.id && Boolean(generatedInviteUrl)
+
+                      return (
+                        <article className={styles.userAccessCard} key={entry.id}>
+                          <div className={styles.userAccessHeader}>
+                            <div>
+                              <strong>{entry.name}</strong>
+                              <span>{entry.email} · {formatUserRole(entry.role)}</span>
+                            </div>
+                            <span className={[styles.badge, styles.badgeMuted].join(' ')}>
+                              Expires {new Date(entry.expiresAt).toLocaleDateString()}
+                            </span>
                           </div>
-                          <span className={[styles.badge, styles.badgeMuted].join(' ')}>
-                            Expires {new Date(entry.expiresAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div className={styles.buttonRow}>
-                          <button
-                            className={styles.secondaryButton}
-                            onClick={() => { void revokeInvitation(entry.id) }}
-                            type="button"
-                          >
-                            Revoke Invite
-                          </button>
-                        </div>
-                        <small className={styles.fieldHint}>
-                          Invite links are only shown once when created, so copy the latest one above if you still need to send it.
-                        </small>
-                      </article>
-                    ))}
+                          {hasFreshInviteLink && (
+                            <div className={[styles.field, styles.inviteLinkCard].join(' ')}>
+                              <span>Invite link ready</span>
+                              <div className={styles.inviteLinkRow}>
+                                <input readOnly value={generatedInviteUrl} />
+                                <button
+                                  className={styles.secondaryButton}
+                                  onClick={() => { void copyToClipboard(generatedInviteUrl, 'Invite link copied.') }}
+                                  type="button"
+                                >
+                                  Copy Link
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          <div className={styles.userFeatureVisibility}>
+                            <span>Prepared access</span>
+                            <div className={styles.visibilityToggleGrid}>
+                              <span className={[
+                                styles.visibilityPill,
+                                featureVisibility.showAiSettings ? styles.visibilityPillOn : styles.visibilityPillOff,
+                              ].join(' ')}>
+                                AI settings {featureVisibility.showAiSettings ? 'visible' : 'hidden'}
+                              </span>
+                              <span className={[
+                                styles.visibilityPill,
+                                featureVisibility.showAiBlogTools ? styles.visibilityPillOn : styles.visibilityPillOff,
+                              ].join(' ')}>
+                                AI blog tools {featureVisibility.showAiBlogTools ? 'visible' : 'hidden'}
+                              </span>
+                              <span className={[
+                                styles.visibilityPill,
+                                featureVisibility.showLinkedIn ? styles.visibilityPillOn : styles.visibilityPillOff,
+                              ].join(' ')}>
+                                LinkedIn tools {featureVisibility.showLinkedIn ? 'visible' : 'hidden'}
+                              </span>
+                            </div>
+                            <small className={styles.fieldHint}>
+                              These settings apply as soon as the client accepts the invitation.
+                            </small>
+                          </div>
+                          <div className={styles.buttonRow}>
+                            <button
+                              className={styles.secondaryButton}
+                              onClick={() => { void revokeInvitation(entry.id) }}
+                              type="button"
+                            >
+                              Revoke Invite
+                            </button>
+                          </div>
+                          {!hasFreshInviteLink && (
+                            <small className={styles.fieldHint}>
+                              Invite links are only shown once when created. Revoke and create a new invite if the link was not copied.
+                            </small>
+                          )}
+                        </article>
+                      )
+                    })}
                   </div>
                 ) : (
                   <p className={styles.muted}>No pending invitations yet.</p>
@@ -2893,7 +4465,7 @@ export function AdminApp({ user }: { user: User }) {
             </section>
           )}
 
-          {tab === 'linkedin' && isSuperAdmin && (
+          {tab === 'linkedin' && canViewLinkedIn && (
             <section className={styles.formStack}>
               {linkedInComingSoon ? (
                 <section className={styles.sectionCard}>
@@ -2998,41 +4570,108 @@ export function AdminApp({ user }: { user: User }) {
           )}
 
           {tab === 'pages' && (
-            <section className={styles.editorLayout}>
-              <section className={styles.listPane}>
-                <div className={styles.sectionCardHeader}>
-                  <h2>All Pages</h2>
-                  <span className={styles.counterPill}>{staticPages.length}</span>
+            <section className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold tracking-tight text-foreground">All Pages</h2>
+                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground">
+                    {staticPages.length}
+                  </span>
                 </div>
-                <div className={styles.list}>
-                  {staticPages.map((page) => (
-                    <button
-                      className={[styles.listItem, activePageSlug === page.slug ? styles.listItemActive : ''].join(' ')}
-                      key={page.slug || 'home'}
-                      onClick={() => setActivePageSlug(page.slug)}
-                      type="button"
+
+                <div className="space-y-2.5">
+                  <div className="relative">
+                    <svg
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                      fill="none"
+                      viewBox="0 0 16 16"
                     >
-                      <div className={styles.listItemTop}>
-                        <strong>{page.slug ? `/${page.slug}` : '/ (home)'}</strong>
-                        <span className={[styles.badge, page.published ? styles.badgeSuccess : styles.badgeMuted].join(' ')}>
+                      <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
+                      <path d="m11 11 3 3" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+                    </svg>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card pl-9 pr-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      onChange={(event) => setPageListQuery(event.target.value)}
+                      placeholder="Search pages"
+                      type="search"
+                      value={pageListQuery}
+                    />
+                  </div>
+
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-muted-foreground">Sort by</span>
+                    <div className="relative">
+                      <select
+                        className="flex h-10 w-full appearance-none rounded-md border border-input bg-card pl-3 pr-9 py-2 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        onChange={(event) => setPageListSort(event.target.value as PageListSort)}
+                        value={pageListSort}
+                      >
+                        <option value="slug-asc">Path A → Z</option>
+                        <option value="slug-desc">Path Z → A</option>
+                        <option value="published">Published first</option>
+                      </select>
+                      <svg
+                        aria-hidden="true"
+                        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                        fill="none"
+                        viewBox="0 0 16 16"
+                      >
+                        <path d="m4 6 4 4 4-4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+                      </svg>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {visiblePages.map((page) => {
+                    const isActive = activePageSlug === page.slug
+                    return (
+                      <button
+                        className={cn(
+                          'flex items-center justify-between gap-3 rounded-lg border px-3.5 py-3 text-left transition-all',
+                          isActive
+                            ? 'border-cyan-400/40 bg-accent/60 text-foreground'
+                            : 'border-border bg-card text-foreground hover:border-cyan-400/30 hover:bg-accent/40',
+                        )}
+                        key={page.slug || 'home'}
+                        onClick={() => setActivePageSlug(page.slug)}
+                        type="button"
+                      >
+                        <strong className="truncate text-sm font-semibold">
+                          {page.slug ? `/${page.slug}` : '/ (home)'}
+                        </strong>
+                        <Badge variant={page.published ? 'accent' : 'muted'}>
                           {page.published ? 'Published' : 'Draft'}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+                        </Badge>
+                      </button>
+                    )
+                  })}
+                  {!visiblePages.length && (
+                    <p className="text-sm text-muted-foreground">No pages match that search.</p>
+                  )}
                 </div>
               </section>
 
               {pageDraft && (
                 <section className={styles.editorPane}>
-                  <div className={styles.sectionCardHeader}>
-                    <h2>{pageDraft.slug ? `/${pageDraft.slug}` : '/ (home)'}</h2>
-                    <a
-                      className={styles.secondaryButton}
-                      href={pageDraft.slug ? `/admin/edit?page=${encodeURIComponent(pageDraft.slug)}` : '/admin/edit'}
-                    >
-                      Edit Content
-                    </a>
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Editing page</p>
+                      <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">
+                        {pageDraft.slug ? `/${pageDraft.slug}` : '/ (home)'}
+                      </h2>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button asChild size="sm" type="button" variant="outline">
+                        <a href={pageDraft.slug ? `/admin/edit?page=${encodeURIComponent(pageDraft.slug)}` : '/admin/edit'}>
+                          Edit content
+                        </a>
+                      </Button>
+                      <Button onClick={savePage} size="sm" type="button">
+                        Save SEO
+                      </Button>
+                    </div>
                   </div>
                   <div className={styles.grid}>
                     <label className={[styles.field, styles.fieldWide].join(' ')}>
@@ -3064,64 +4703,96 @@ export function AdminApp({ user }: { user: User }) {
           )}
 
           {tab === 'posts' && canViewBlog && (
-            <section className={styles.editorLayout}>
-              <section className={styles.listPane}>
-                <div className={styles.sectionCardHeader}>
-                  <h2>All Posts</h2>
-                  <span className={styles.counterPill}>{posts.length}</span>
+            <section className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold tracking-tight text-foreground">All Posts</h2>
+                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground">
+                    {posts.length}
+                  </span>
                 </div>
-                <div className={styles.listControls}>
-                  <input
-                    className={styles.listSearch}
-                    onChange={(event) => setPostListQuery(event.target.value)}
-                    placeholder="Search posts"
-                    value={postListQuery}
-                  />
-                  <select
-                    className={styles.listSort}
-                    onChange={(event) => setPostListSort(event.target.value as PostListSort)}
-                    value={postListSort}
-                  >
-                    <option value="recent">Newest first</option>
-                    <option value="title-asc">Title A-Z</option>
-                    <option value="title-desc">Title Z-A</option>
-                    <option value="published">Published first</option>
-                  </select>
-                </div>
-                <div className={styles.list}>
-                  {visiblePosts.map((post) => (
-                    <button
-                      className={[styles.listItem, activePostSlug === post.slug ? styles.listItemActive : ''].join(' ')}
-                      key={post.slug}
-                      onClick={() => {
-                        setActivePostSlug(post.slug)
-                        setAiPostBuilder((current) => ({ ...current, open: false }))
-                      }}
-                      type="button"
+
+                <div className="space-y-2.5">
+                  <div className="relative">
+                    <svg
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                      fill="none"
+                      viewBox="0 0 16 16"
                     >
-                      <div className={styles.contentListItem}>
-                        <div className={styles.contentListThumb}>
+                      <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
+                      <path d="m11 11 3 3" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+                    </svg>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card pl-9 pr-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      onChange={(event) => setPostListQuery(event.target.value)}
+                      placeholder="Search posts"
+                      type="search"
+                      value={postListQuery}
+                    />
+                  </div>
+
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-muted-foreground">Sort by</span>
+                    <div className="relative">
+                      <select
+                        className="flex h-10 w-full appearance-none rounded-md border border-input bg-card pl-3 pr-9 py-2 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        onChange={(event) => setPostListSort(event.target.value as PostListSort)}
+                        value={postListSort}
+                      >
+                        <option value="recent">Newest first</option>
+                        <option value="title-asc">Title A → Z</option>
+                        <option value="title-desc">Title Z → A</option>
+                        <option value="published">Published first</option>
+                      </select>
+                      <svg
+                        aria-hidden="true"
+                        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                        fill="none"
+                        viewBox="0 0 16 16"
+                      >
+                        <path d="m4 6 4 4 4-4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+                      </svg>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {visiblePosts.map((post) => {
+                    const isActive = activePostSlug === post.slug
+                    return (
+                      <button
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg border p-3 text-left transition-all',
+                          isActive
+                            ? 'border-cyan-400/40 bg-accent/60'
+                            : 'border-border bg-card hover:border-cyan-400/30 hover:bg-accent/40',
+                        )}
+                        key={post.slug}
+                        onClick={() => {
+                          setActivePostSlug(post.slug)
+                          setAiPostBuilder((current) => ({ ...current, open: false }))
+                        }}
+                        type="button"
+                      >
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-accent/60 text-muted-foreground">
                           {post.coverImageUrl ? (
-                            <img alt={post.coverImageAlt || post.title} className={styles.contentListThumbImage} src={post.coverImageUrl} />
+                            <img alt={post.coverImageAlt || post.title} className="h-full w-full object-cover" src={post.coverImageUrl} />
                           ) : (
-                            <div className={styles.contentListThumbPlaceholder}>
-                              <IconPosts />
-                            </div>
+                            <IconPosts />
                           )}
                         </div>
-                        <div className={styles.contentListBody}>
-                          <strong className={styles.contentListTitle}>{post.title}</strong>
-                          <div className={styles.contentListFooter}>
-                            <span className={[styles.badge, post.published ? styles.badgeSuccess : styles.badgeMuted].join(' ')}>
-                              {post.published ? 'Published' : 'Archived'}
-                            </span>
-                          </div>
+                        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                          <strong className="truncate text-sm font-semibold text-foreground">{post.title}</strong>
+                          <Badge className="self-start" variant={post.published ? 'accent' : 'muted'}>
+                            {post.published ? 'Published' : 'Archived'}
+                          </Badge>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    )
+                  })}
                   {!visiblePosts.length && (
-                    <p className={styles.muted}>No posts match that search yet.</p>
+                    <p className="text-sm text-muted-foreground">No posts match that search yet.</p>
                   )}
                 </div>
               </section>
@@ -3242,33 +4913,61 @@ export function AdminApp({ user }: { user: User }) {
 
                   {!aiPostBuilder.open && postDraft && (
                     <>
-                      <div className={styles.sectionCardHeader}>
-                        <h2>{postDraft.title || 'New Post'}</h2>
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                            {activePostSlug ? 'Editing post' : 'New post'}
+                          </p>
+                          <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">
+                            {postDraft.title || 'New Post'}
+                          </h2>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <label className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm">
+                            <input
+                              checked={postDraft.published}
+                              onChange={(event) => setPostDraft({ ...postDraft, published: event.target.checked })}
+                              type="checkbox"
+                            />
+                            <span className="text-foreground">Published</span>
+                          </label>
+                          {activePostSlug && (
+                            <Button onClick={deletePost} size="sm" type="button" variant="destructive">
+                              Delete
+                            </Button>
+                          )}
+                          <Button onClick={() => { void savePost() }} size="sm" type="button">
+                            Save
+                          </Button>
+                        </div>
                       </div>
                       <div className={styles.grid}>
+                    <label className={[styles.field, styles.fieldWide].join(' ')}>
+                      <span>Title</span>
+                      <input
+                        autoFocus={!postDraft.title}
+                        onChange={(event) => {
+                          const nextTitle = event.target.value
+                          const autoSlugMatch = !postDraft.slug || postDraft.slug === slugify(postDraft.title)
+                          const nextSlug = autoSlugMatch ? slugify(nextTitle) : postDraft.slug
+                          setPostDraft({ ...postDraft, slug: nextSlug, title: nextTitle })
+                        }}
+                        placeholder="e.g. Five things we learned shipping a starter CMS"
+                        value={postDraft.title}
+                      />
+                    </label>
                     <label className={styles.field}>
                       <span>Slug</span>
-                      <input value={postDraft.slug} onChange={(event) => setPostDraft({ ...postDraft, slug: event.target.value })} />
+                      <input
+                        onChange={(event) => setPostDraft({ ...postDraft, slug: event.target.value })}
+                        placeholder="auto-generated from title"
+                        value={postDraft.slug}
+                      />
+                      <small className={styles.fieldHint}>Used in the URL. Auto-fills from the title until you edit it manually.</small>
                     </label>
                     <label className={styles.field}>
                       <span>Published at</span>
                       <input value={postDraft.publishedAt} onChange={(event) => setPostDraft({ ...postDraft, publishedAt: event.target.value })} />
-                    </label>
-                    <label className={styles.field}>
-                      <span className={styles.toggleLabel}>
-                        <input
-                          checked={postDraft.published}
-                          className={styles.toggleInput}
-                          onChange={(event) => setPostDraft({ ...postDraft, published: event.target.checked })}
-                          type="checkbox"
-                        />
-                        Published
-                      </span>
-                      <small className={styles.fieldHint}>Turn this off to archive the post without deleting it.</small>
-                    </label>
-                    <label className={[styles.field, styles.fieldWide].join(' ')}>
-                      <span>Title</span>
-                      <input value={postDraft.title} onChange={(event) => setPostDraft({ ...postDraft, title: event.target.value })} />
                     </label>
                     <label className={[styles.field, styles.fieldWide].join(' ')}>
                       <span>Excerpt</span>
@@ -3384,6 +5083,32 @@ export function AdminApp({ user }: { user: User }) {
                       <span>Read time</span>
                       <input value={postDraft.readTime || ''} onChange={(event) => setPostDraft({ ...postDraft, readTime: event.target.value })} />
                     </label>
+                    <div className={[styles.field, styles.fieldWide].join(' ')}>
+                      <ContentItemReferenceSelect
+                        helperText="Pick a linked Author content item. Selecting one auto-fills the name and role below; you can still override them manually for one-off bylines."
+                        label="Linked author"
+                        onChange={(slug, item) => {
+                          if (!slug) {
+                            setPostDraft({ ...postDraft, authorSlug: '' })
+                            return
+                          }
+                          const nextName = item && typeof item.data?.name === 'string' && item.data.name
+                            ? String(item.data.name)
+                            : postDraft.authorName
+                          const nextRole = item && typeof item.data?.role === 'string' && item.data.role
+                            ? String(item.data.role)
+                            : postDraft.authorRole
+                          setPostDraft({
+                            ...postDraft,
+                            authorName: nextName,
+                            authorRole: nextRole,
+                            authorSlug: slug,
+                          })
+                        }}
+                        targetType="author"
+                        value={postDraft.authorSlug || ''}
+                      />
+                    </div>
                     <label className={styles.field}>
                       <span>Author name</span>
                       <input value={postDraft.authorName} onChange={(event) => setPostDraft({ ...postDraft, authorName: event.target.value })} />
@@ -3400,7 +5125,7 @@ export function AdminApp({ user }: { user: User }) {
                       <span>Article body</span>
                       <RichTextEditor value={postDraft.contentHtml} onChange={(value) => setPostDraft({ ...postDraft, contentHtml: value })} />
                     </div>
-                    {linkedInConnection.connected && linkedInTargets.length > 0 && (
+                    {canViewLinkedIn && linkedInConnection.connected && linkedInTargets.length > 0 && (
                       <label className={[styles.field, styles.fieldWide].join(' ')}>
                         <span>LinkedIn share destination</span>
                         <select
@@ -3420,13 +5145,15 @@ export function AdminApp({ user }: { user: User }) {
                     )}
                       </div>
                       <div className={styles.actions}>
-                        <button
-                          className={styles.secondaryButton}
-                          disabled
-                          type="button"
-                        >
-                          LinkedIn (Coming Soon)
-                        </button>
+                        {canViewLinkedIn && (
+                          <button
+                            className={styles.secondaryButton}
+                            disabled
+                            type="button"
+                          >
+                            LinkedIn (Coming Soon)
+                          </button>
+                        )}
                         <button
                           className={styles.secondaryButton}
                           onClick={() => {
@@ -3448,99 +5175,150 @@ export function AdminApp({ user }: { user: User }) {
           )}
 
           {tab === 'products' && (
-            <section className={styles.editorLayout}>
-              <section className={styles.listPane}>
-                <div className={styles.sectionCardHeader}>
-                  <h2>All Products</h2>
-                  <span className={styles.counterPill}>{products.length}</span>
+            <section className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold tracking-tight text-foreground">All Products</h2>
+                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground">
+                    {products.length}
+                  </span>
                 </div>
-                <div className={styles.listControls}>
-                  <input
-                    className={styles.listSearch}
-                    onChange={(event) => setProductListQuery(event.target.value)}
-                    placeholder="Search products"
-                    value={productListQuery}
-                  />
-                  <select
-                    className={styles.listSort}
-                    onChange={(event) => setProductListSort(event.target.value as ProductListSort)}
-                    value={productListSort}
-                  >
-                    <option value="category">Sort by category</option>
-                    <option value="title-asc">Title A-Z</option>
-                    <option value="title-desc">Title Z-A</option>
-                    <option value="published">Published first</option>
-                  </select>
-                </div>
-                <div className={styles.list}>
-                  {visibleProducts.map((product) => (
-                    <button
-                      className={[styles.listItem, activeProductSlug === product.slug ? styles.listItemActive : ''].join(' ')}
-                      key={product.slug}
-                      onClick={() => { void handleSelectProduct(product.slug) }}
-                      type="button"
+
+                <div className="space-y-2.5">
+                  <div className="relative">
+                    <svg
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                      fill="none"
+                      viewBox="0 0 16 16"
                     >
-                      <div className={styles.contentListItem}>
-                        <div className={styles.contentListThumb}>
+                      <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
+                      <path d="m11 11 3 3" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+                    </svg>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card pl-9 pr-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      onChange={(event) => setProductListQuery(event.target.value)}
+                      placeholder="Search products"
+                      type="search"
+                      value={productListQuery}
+                    />
+                  </div>
+
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-muted-foreground">Sort by</span>
+                    <div className="relative">
+                      <select
+                        className="flex h-10 w-full appearance-none rounded-md border border-input bg-card pl-3 pr-9 py-2 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        onChange={(event) => setProductListSort(event.target.value as ProductListSort)}
+                        value={productListSort}
+                      >
+                        <option value="category">Category</option>
+                        <option value="title-asc">Title A → Z</option>
+                        <option value="title-desc">Title Z → A</option>
+                        <option value="published">Published first</option>
+                      </select>
+                      <svg
+                        aria-hidden="true"
+                        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                        fill="none"
+                        viewBox="0 0 16 16"
+                      >
+                        <path d="m4 6 4 4 4-4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+                      </svg>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {visibleProducts.map((product) => {
+                    const isActive = activeProductSlug === product.slug
+                    return (
+                      <button
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg border p-3 text-left transition-all',
+                          isActive
+                            ? 'border-cyan-400/40 bg-accent/60'
+                            : 'border-border bg-card hover:border-cyan-400/30 hover:bg-accent/40',
+                        )}
+                        key={product.slug}
+                        onClick={() => { void handleSelectProduct(product.slug) }}
+                        type="button"
+                      >
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-accent/60 text-muted-foreground">
                           {product.heroImageUrl ? (
-                            <img alt={product.heroImageAlt || product.name} className={styles.contentListThumbImage} src={product.heroImageUrl} />
+                            <img alt={product.heroImageAlt || product.name} className="h-full w-full object-cover" src={product.heroImageUrl} />
                           ) : (
-                            <div className={styles.contentListThumbPlaceholder}>
-                              <IconProducts />
-                            </div>
+                            <IconProducts />
                           )}
                         </div>
-                        <div className={styles.contentListBody}>
-                          <strong className={styles.contentListTitle}>{product.name}</strong>
-                          <div className={styles.contentListFooter}>
-                            <span className={[styles.badge, product.published ? styles.badgeSuccess : styles.badgeMuted].join(' ')}>
-                              {product.published ? 'Published' : 'Archived'}
-                            </span>
-                          </div>
+                        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                          <strong className="truncate text-sm font-semibold text-foreground">{product.name}</strong>
+                          <Badge className="self-start" variant={product.published ? 'accent' : 'muted'}>
+                            {product.published ? 'Published' : 'Archived'}
+                          </Badge>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    )
+                  })}
                   {!visibleProducts.length && (
-                    <p className={styles.muted}>No products match that search yet.</p>
+                    <p className="text-sm text-muted-foreground">No products match that search yet.</p>
                   )}
                 </div>
               </section>
 
               {productDraft && (
                 <section className={styles.editorPane}>
-                  <div className={styles.sectionCardHeader}>
-                    <h2>{productDraft.name || 'New Product'}</h2>
-                  </div>
-                  <div className={styles.grid}>
-                    <label className={styles.field}>
-                      <span>Slug</span>
-                      <input value={productDraft.slug} onChange={(event) => setProductDraft({ ...productDraft, slug: event.target.value })} />
-                    </label>
-                    <label className={styles.field}>
-                      <span>Product type</span>
-                      <select
-                        value={productDraft.airconType}
-                        onChange={(event) => setProductDraft(applyProductTypeToDraft(productDraft, event.target.value))}
-                      >
-                        {PRODUCT_TYPE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className={styles.field}>
-                      <span className={styles.toggleLabel}>
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                        {activeProductSlug ? 'Editing product' : 'New product'}
+                      </p>
+                      <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">
+                        {productDraft.name || 'New Product'}
+                      </h2>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm">
                         <input
                           checked={productDraft.published}
-                          className={styles.toggleInput}
                           onChange={(event) => setProductDraft({ ...productDraft, published: event.target.checked })}
                           type="checkbox"
                         />
-                        Published
-                      </span>
-                      <small className={styles.fieldHint}>Turn this off to archive the product without deleting it.</small>
+                        <span className="text-foreground">Published</span>
+                      </label>
+                      {activeProductSlug && (
+                        <Button onClick={deleteProduct} size="sm" type="button" variant="destructive">
+                          Delete
+                        </Button>
+                      )}
+                      <Button onClick={() => { void saveProduct() }} size="sm" type="button">
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                  <div className={styles.grid}>
+                    <label className={[styles.field, styles.fieldWide].join(' ')}>
+                      <span>Name</span>
+                      <input
+                        autoFocus={!productDraft.name}
+                        onChange={(event) => {
+                          const nextName = event.target.value
+                          const autoSlugMatch = productDraft.slug === slugify(productDraft.name) || !productDraft.slug
+                          const nextSlug = autoSlugMatch ? slugify(nextName) : productDraft.slug
+                          setProductDraft({ ...productDraft, name: nextName, slug: nextSlug })
+                        }}
+                        placeholder="e.g. Acme Pro Cooler 2000"
+                        value={productDraft.name}
+                      />
+                    </label>
+                    <label className={styles.field}>
+                      <span>Slug</span>
+                      <input
+                        onChange={(event) => setProductDraft({ ...productDraft, slug: event.target.value })}
+                        placeholder="auto-generated from name"
+                        value={productDraft.slug}
+                      />
+                      <small className={styles.fieldHint}>Used in the URL. Auto-fills from the name until you edit it manually.</small>
                     </label>
                     <label className={styles.field}>
                       <span className={styles.toggleLabel}>
@@ -3553,10 +5331,6 @@ export function AdminApp({ user }: { user: User }) {
                         Featured on front-end lists
                       </span>
                       <small className={styles.fieldHint}>Use this flag where the site prioritizes featured products.</small>
-                    </label>
-                    <label className={[styles.field, styles.fieldWide].join(' ')}>
-                      <span>Name</span>
-                      <input value={productDraft.name} onChange={(event) => setProductDraft({ ...productDraft, name: event.target.value })} />
                     </label>
                     <label className={[styles.field, styles.fieldWide].join(' ')}>
                       <span>Short description</span>
@@ -3585,24 +5359,6 @@ export function AdminApp({ user }: { user: User }) {
                     <label className={styles.field}>
                       <span>Price label</span>
                       <input value={productDraft.priceLabel || ''} onChange={(event) => setProductDraft({ ...productDraft, priceLabel: event.target.value })} />
-                    </label>
-                    <label className={styles.field}>
-                      <span>Heating kW</span>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={productDraft.heatingKw}
-                        onChange={(event) => setProductDraft({ ...productDraft, heatingKw: Number(event.target.value || 0) })}
-                      />
-                    </label>
-                    <label className={styles.field}>
-                      <span>Cooling kW</span>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={productDraft.coolingKw}
-                        onChange={(event) => setProductDraft({ ...productDraft, coolingKw: Number(event.target.value || 0) })}
-                      />
                     </label>
                     <div className={[styles.fieldWide, styles.productMediaLayout].join(' ')}>
                       <div className={styles.coverImageColumn}>
@@ -3687,6 +5443,22 @@ export function AdminApp({ user }: { user: User }) {
                               </>
                             )}
                           </div>
+                          {productDraft.heroImageUrl && (
+                            <label className="flex flex-col gap-1.5 px-3 pt-3">
+                              <span className="text-xs font-medium text-muted-foreground">Hero image alt text</span>
+                              <input
+                                className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1.5 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                onChange={(event) => {
+                                  const nextAlt = event.target.value
+                                  updateProductDraftImages((current) => current.map((entry, currentIndex) => (
+                                    currentIndex === 0 ? { ...entry, alt: nextAlt } : entry
+                                  )))
+                                }}
+                                placeholder={productDraft.heroImageAlt ? '' : 'Describe the hero image for accessibility and SEO'}
+                                value={productDraft.heroImageAlt || ''}
+                              />
+                            </label>
+                          )}
                           {productDraft.productImages.length > 1 ? (
                             <div className={styles.productImageThumbSection}>
                               <div className={styles.productImageThumbHeader}>
@@ -3754,7 +5526,9 @@ export function AdminApp({ user }: { user: User }) {
                                         >
                                           <IconTrashSmall />
                                         </button>
-                                        <div className={styles.productImageDragHandle} aria-hidden="true">⋮⋮</div>
+                                        <div aria-hidden="true" className={styles.productImageDragHandle} title="Drag to reorder">
+                                          <IconDragDots />
+                                        </div>
                                       </div>
                                       <img
                                         alt={image.alt || productDraft.name}
@@ -3770,6 +5544,18 @@ export function AdminApp({ user }: { user: User }) {
                                               : 'Gallery image shown after the hero.'}
                                           </span>
                                         </div>
+                                        <input
+                                          aria-label={`Alt text for image ${index + 1}`}
+                                          className="flex h-9 w-full rounded-md border border-input bg-card px-2.5 py-1.5 text-xs text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                          onChange={(event) => {
+                                            const nextAlt = event.target.value
+                                            updateProductDraftImages((current) => current.map((entry, currentIndex) => (
+                                              currentIndex === index ? { ...entry, alt: nextAlt } : entry
+                                            )))
+                                          }}
+                                          placeholder={image.alt ? '' : 'No alt text — click to add'}
+                                          value={image.alt || ''}
+                                        />
                                       </div>
                                     </div>
                                   )
@@ -3872,64 +5658,21 @@ export function AdminApp({ user }: { user: User }) {
                           )}
                         </div>
                       )}
-                      <div style={{ display: 'grid', gap: '1rem', alignContent: 'start' }}>
-                        <label className={styles.field}>
-                          <span>Alt text</span>
-                          <input
-                            value={productDraft.heroImageAlt || ''}
-                            onChange={(event) => {
-                              const nextAlt = event.target.value
-                              setProductDraft(syncProductDraftImages({
-                                ...productDraft,
-                                heroImageAlt: nextAlt,
-                                productImages: productDraft.productImages.map((image, index) => (
-                                  index === 0
-                                    ? { ...image, alt: nextAlt }
-                                    : image
-                                )),
-                              }))
-                            }}
-                            placeholder="Describe the hero product image"
-                          />
-                        </label>
-                        <label className={styles.field}>
-                          <span>Image URL</span>
-                          <input value={productDraft.heroImageUrl || ''} readOnly style={{ color: '#8b939c', fontSize: '0.85rem' }} />
-                        </label>
-                      </div>
                     </div>
-                    <label className={styles.field}>
-                      <span>Family code</span>
-                      <input value={productDraft.familyCode} onChange={(event) => setProductDraft({ ...productDraft, familyCode: event.target.value })} />
-                    </label>
-                    <label className={styles.field}>
-                      <span>Family name</span>
-                      <input value={productDraft.familyName} onChange={(event) => setProductDraft({ ...productDraft, familyName: event.target.value })} />
-                    </label>
-                    <label className={styles.field}>
-                      <span>Category slug</span>
-                      <input value={productDraft.categorySlug} readOnly style={{ color: '#8b939c', fontSize: '0.85rem' }} />
-                    </label>
-                    <label className={styles.field}>
-                      <span>Category label</span>
-                      <input value={productDraft.categoryLabel} readOnly style={{ color: '#8b939c', fontSize: '0.85rem' }} />
-                    </label>
-                    <label className={styles.field}>
-                      <span>Installation cost tag</span>
-                      <input value={productDraft.installationCost} onChange={(event) => setProductDraft({ ...productDraft, installationCost: event.target.value })} />
-                    </label>
-                    <label className={styles.field}>
-                      <span>Install summary</span>
-                      <input value={productDraft.installSummary} onChange={(event) => setProductDraft({ ...productDraft, installSummary: event.target.value })} />
-                    </label>
-                    <label className={styles.field}>
-                      <span>Brochure label</span>
-                      <input value={productDraft.brochureLabel} onChange={(event) => setProductDraft({ ...productDraft, brochureLabel: event.target.value })} />
-                    </label>
-                    <label className={styles.field}>
-                      <span>Brochure URL</span>
-                      <input value={productDraft.brochureHref} onChange={(event) => setProductDraft({ ...productDraft, brochureHref: event.target.value })} />
-                    </label>
+                    <div className={styles.field}>
+                      <ContentItemReferenceSelect
+                        helperText="Picks from your Categories collection. Add or edit categories in the Categories tab."
+                        label="Category"
+                        onChange={(slug, item) => {
+                          const label = item && typeof item.data?.name === 'string'
+                            ? item.data.name
+                            : slug
+                          setProductDraft({ ...productDraft, categoryLabel: label, categorySlug: slug })
+                        }}
+                        targetType="category"
+                        value={productDraft.categorySlug}
+                      />
+                    </div>
                     <label className={[styles.field, styles.fieldWide].join(' ')}>
                       <span>Overview</span>
                       <textarea value={productDraft.overview} onChange={(event) => setProductDraft({ ...productDraft, overview: event.target.value })} />
@@ -4019,27 +5762,712 @@ export function AdminApp({ user }: { user: User }) {
                 </form>
               </section>
 
-              <section className={styles.sectionCard}>
-                <div className={styles.sectionCardHeader}>
-                  <h2>Library</h2>
-                  <span className={styles.counterPill}>{media.length}</span>
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold tracking-tight text-foreground">Library</h2>
+                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground">
+                    {media.length}
+                  </span>
                 </div>
-                <div className={styles.mediaGrid}>
-                  {media.map((item) => (
-                    <article className={styles.mediaCard} key={item.publicUrl}>
-                      {item.publicUrl && <img alt={item.alt || item.filename} className={styles.mediaPreview} src={item.publicUrl} />}
-                      <div className={styles.mediaMeta}>
-                        <strong>{item.filename}</strong>
-                        <div className={styles.muted}>{item.alt || 'No alt text yet'}</div>
-                      </div>
-                    </article>
-                  ))}
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {media.map((item) => {
+                    const isDeleting = deletingMediaId === item.id
+                    return (
+                      <article
+                        className={cn(
+                          'group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-all hover:border-cyan-400/30',
+                          isDeleting && 'opacity-50',
+                        )}
+                        key={item.id}
+                      >
+                        <button
+                          aria-label={`Edit alt text for ${item.filename}`}
+                          className="block aspect-[4/3] overflow-hidden bg-white"
+                          onClick={() => setMediaEditDraft({ alt: item.alt || '', id: item.id })}
+                          type="button"
+                        >
+                          {item.publicUrl && (
+                            <img
+                              alt={item.alt || item.filename}
+                              className="h-full w-full object-contain"
+                              src={item.publicUrl}
+                            />
+                          )}
+                        </button>
+
+                        <div className="flex flex-1 flex-col gap-1 border-t border-border p-3">
+                          <strong className="truncate text-sm font-semibold text-foreground" title={item.filename}>
+                            {item.filename}
+                          </strong>
+                          <p className="line-clamp-2 text-xs text-muted-foreground">
+                            {item.alt || 'No alt text yet'}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-1 border-t border-border bg-card/60 px-2 py-1.5">
+                          <button
+                            aria-label={`Edit alt text for ${item.filename}`}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                            onClick={() => setMediaEditDraft({ alt: item.alt || '', id: item.id })}
+                            type="button"
+                          >
+                            <svg fill="none" height="14" viewBox="0 0 16 16" width="14">
+                              <path d="m10.5 2.5 3 3-8 8H2.5v-3l8-8Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+                              <path d="m8.5 4.5 3 3" stroke="currentColor" strokeWidth="1.5" />
+                            </svg>
+                          </button>
+                          <button
+                            aria-label={`Delete ${item.filename}`}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                            disabled={isDeleting}
+                            onClick={() => setMediaDeleteConfirm(item)}
+                            type="button"
+                          >
+                            <svg fill="none" height="14" viewBox="0 0 16 16" width="14">
+                              <path d="M2.5 4.5h11M6 4.5V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5M4 4.5l.7 8.6a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9L12 4.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+                            </svg>
+                          </button>
+                        </div>
+                      </article>
+                    )
+                  })}
+                  {!media.length && (
+                    <p className="col-span-full text-sm text-muted-foreground">No media uploaded yet.</p>
+                  )}
                 </div>
               </section>
             </section>
           )}
+
+          {tab === 'email' && (
+            <div className="grid gap-8 lg:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">
+              {/* Settings column */}
+              <section className="space-y-5">
+                <div className="space-y-1">
+                  <h2 className="text-base font-semibold tracking-tight text-foreground">Resend</h2>
+                  <p className="text-sm text-muted-foreground">Configure outbound email via Resend. The API key is stored encrypted.</p>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">Resend API key</span>
+                    <input
+                      autoComplete="off"
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      onChange={(event) => setEmailSettings((current) => ({ ...current, resendApiKeyInput: event.target.value }))}
+                      placeholder={emailSettings.hasResendApiKey ? '••••••••  (stored)' : 're_…'}
+                      type="password"
+                      value={emailSettings.resendApiKeyInput}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {emailSettings.hasResendApiKey
+                        ? 'A key is stored. Enter a new one only if you want to rotate it.'
+                        : 'Find your key at resend.com → API Keys.'}
+                    </p>
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">From address</span>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      onChange={(event) => setEmailSettings((current) => ({ ...current, fromEmail: event.target.value }))}
+                      placeholder="noreply@yoursite.com"
+                      type="email"
+                      value={emailSettings.fromEmail}
+                    />
+                    <p className="text-xs text-muted-foreground">Must be on a domain verified in Resend.</p>
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">From name (optional)</span>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      onChange={(event) => setEmailSettings((current) => ({ ...current, fromName: event.target.value }))}
+                      placeholder="Your Site"
+                      value={emailSettings.fromName}
+                    />
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">Notify on new submission</span>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      onChange={(event) => setEmailSettings((current) => ({ ...current, notificationEmail: event.target.value }))}
+                      placeholder="you@example.com"
+                      type="email"
+                      value={emailSettings.notificationEmail}
+                    />
+                    <p className="text-xs text-muted-foreground">When a form is submitted, send a notification to this address. Leave blank to skip.</p>
+                  </label>
+                </div>
+
+                <div className="rounded-lg border border-border bg-card p-4 text-xs text-muted-foreground">
+                  <p className="mb-2 font-semibold text-foreground">Public endpoint</p>
+                  <code className="block break-all font-mono text-foreground">POST /api/forms/contact</code>
+                  <p className="mt-2">Accepts JSON or form-data with <code className="font-mono">name</code>, <code className="font-mono">email</code>, <code className="font-mono">subject</code>, <code className="font-mono">message</code>. Replace <code className="font-mono">contact</code> in the URL to capture other form types (e.g. <code className="font-mono">/api/forms/quote</code>).</p>
+                </div>
+              </section>
+
+              {/* Submissions column */}
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-base font-semibold tracking-tight text-foreground">Inbox</h2>
+                    <p className="text-sm text-muted-foreground">Form submissions captured from the public site.</p>
+                  </div>
+                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground">
+                    {formSubmissions.filter((entry) => !entry.archived).length}
+                  </span>
+                </div>
+
+                {!formSubmissions.length ? (
+                  <div className="rounded-lg border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">
+                    No submissions yet. When a form on your public site posts to <code className="font-mono">/api/forms/contact</code>, the message will appear here.
+                  </div>
+                ) : (
+                  <div className="overflow-hidden rounded-lg border border-border">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium">Received</th>
+                          <th className="px-3 py-2 text-left font-medium">From</th>
+                          <th className="px-3 py-2 text-left font-medium">Subject</th>
+                          <th className="px-3 py-2 text-left font-medium">Type</th>
+                          <th className="px-3 py-2 text-right font-medium">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {formSubmissions.map((entry) => (
+                          <tr
+                            className={cn(
+                              'border-t border-border transition-colors',
+                              entry.archived ? 'bg-muted/30 text-muted-foreground' : 'hover:bg-accent/40',
+                            )}
+                            key={entry.id}
+                          >
+                            <td className="px-3 py-2 text-xs text-muted-foreground">
+                              {entry.createdAt ? new Date(entry.createdAt + 'Z').toLocaleString() : '—'}
+                            </td>
+                            <td className="px-3 py-2">
+                              <button
+                                className="text-left text-sm font-medium text-foreground hover:underline"
+                                onClick={() => setActiveSubmission(entry)}
+                                type="button"
+                              >
+                                {entry.name || entry.email || '(no name)'}
+                              </button>
+                              {entry.email && <div className="text-xs text-muted-foreground">{entry.email}</div>}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-foreground">
+                              <button
+                                className="text-left hover:underline"
+                                onClick={() => setActiveSubmission(entry)}
+                                type="button"
+                              >
+                                {entry.subject || <span className="text-muted-foreground italic">(no subject)</span>}
+                              </button>
+                            </td>
+                            <td className="px-3 py-2">
+                              <Badge variant="outline">{entry.formType}</Badge>
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="flex justify-end gap-1">
+                                <button
+                                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                  onClick={() => { void archiveSubmission(entry, !entry.archived) }}
+                                  title={entry.archived ? 'Restore' : 'Archive'}
+                                  type="button"
+                                >
+                                  {entry.archived ? '↶' : '✓'}
+                                </button>
+                                <button
+                                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() => setSubmissionDeleteConfirm(entry)}
+                                  title="Delete"
+                                  type="button"
+                                >
+                                  <svg fill="none" height="14" viewBox="0 0 16 16" width="14">
+                                    <path d="M2.5 4.5h11M6 4.5V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5M4 4.5l.7 8.6a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9L12 4.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+
+          {isContentItemTab(tab) && (() => {
+            const typeSlug = contentTypeSlugFromTab(tab)
+            const def = CONTENT_TYPE_DEFINITIONS.find((entry) => entry.slug === typeSlug)
+            if (!def) {
+              return (
+                <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+                  Unknown content type <strong className="font-semibold text-foreground">{typeSlug}</strong>.
+                </div>
+              )
+            }
+
+            const items = contentItemsByType[typeSlug] || []
+            const titleField = def.titleField || 'name'
+            const normalizedQuery = contentItemListQuery.trim().toLowerCase()
+            const visibleItems = !normalizedQuery
+              ? items
+              : items.filter((entry) => {
+                  const haystack = [
+                    entry.slug,
+                    String(entry.data?.[titleField] || ''),
+                    ...def.fields.map((field) => String(entry.data?.[field.name] || '')),
+                  ].join(' ').toLowerCase()
+                  return haystack.includes(normalizedQuery)
+                })
+
+            function updateDraftField(fieldName: string, value: unknown) {
+              setContentItemDraft((current) => {
+                if (!current) {
+                  return current
+                }
+                const nextData = { ...current.data, [fieldName]: value }
+                const next: typeof current = { ...current, data: nextData }
+                if (fieldName === titleField && current.isNew) {
+                  const previousName = String(current.data[titleField] || '')
+                  const autoFromPrevious = slugify(previousName)
+                  // Keep syncing as long as the slug still matches what was auto-derived
+                  // from the previous name (or the slug is empty). Once the user types
+                  // anything else into the slug field manually, stop auto-syncing.
+                  if (!current.slug || current.slug === autoFromPrevious) {
+                    next.slug = slugify(String(value || ''))
+                  }
+                }
+                return next
+              })
+            }
+
+            const draftBelongsToThisType = contentItemDraft && contentItemDraft.type === typeSlug
+
+            return (
+              <section className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+                {/* LIST PANE */}
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-semibold tracking-tight text-foreground">All {def.labelPlural}</h2>
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground">
+                      {items.length}
+                    </span>
+                  </div>
+
+                  <div className="relative">
+                    <svg
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                      fill="none"
+                      viewBox="0 0 16 16"
+                    >
+                      <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
+                      <path d="m11 11 3 3" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+                    </svg>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card pl-9 pr-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      onChange={(event) => setContentItemListQuery(event.target.value)}
+                      placeholder={`Search ${def.labelPlural.toLowerCase()}`}
+                      type="search"
+                      value={contentItemListQuery}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    {visibleItems.map((entry) => {
+                      const isActive = activeContentItemSlug === entry.slug && !contentItemDraft?.isNew
+                      const title = String(entry.data?.[titleField] || entry.slug || '(untitled)')
+                      return (
+                        <button
+                          className={cn(
+                            'flex items-center justify-between gap-3 rounded-lg border px-3.5 py-3 text-left transition-all',
+                            isActive
+                              ? 'border-cyan-400/40 bg-accent/60 text-foreground'
+                              : 'border-border bg-card text-foreground hover:border-cyan-400/30 hover:bg-accent/40',
+                          )}
+                          key={entry.id}
+                          onClick={() => setActiveContentItemSlug(entry.slug)}
+                          type="button"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold">{title}</span>
+                            <span className="block truncate text-xs text-muted-foreground">/{entry.slug}</span>
+                          </span>
+                          <Badge variant={entry.published ? 'accent' : 'muted'}>
+                            {entry.published ? 'Published' : 'Draft'}
+                          </Badge>
+                        </button>
+                      )
+                    })}
+                    {!visibleItems.length && !items.length && (
+                      <p className="text-sm text-muted-foreground">
+                        No {def.labelPlural.toLowerCase()} yet. Click <strong className="font-semibold text-foreground">Add {def.label}</strong> to create one.
+                      </p>
+                    )}
+                    {!visibleItems.length && items.length > 0 && (
+                      <p className="text-sm text-muted-foreground">No matches for that search.</p>
+                    )}
+                  </div>
+                </section>
+
+                {/* EDITOR PANE */}
+                {draftBelongsToThisType && contentItemDraft ? (
+                  <section className="space-y-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+                      <div className="min-w-0 space-y-1">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                          {contentItemDraft.isNew ? `New ${def.label}` : `Editing ${def.label}`}
+                        </p>
+                        <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">
+                          {String(contentItemDraft.data[titleField] || `New ${def.label}`)}
+                        </h2>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm">
+                          <input
+                            checked={contentItemDraft.published}
+                            onChange={(event) => setContentItemDraft((current) => current && { ...current, published: event.target.checked })}
+                            type="checkbox"
+                          />
+                          <span className="text-foreground">Published</span>
+                        </label>
+                        {!contentItemDraft.isNew && (
+                          <Button
+                            onClick={() => setContentItemDeleteConfirm({
+                              slug: contentItemDraft.originalSlug,
+                              title: String(contentItemDraft.data[titleField] || contentItemDraft.originalSlug),
+                              type: contentItemDraft.type,
+                            })}
+                            size="sm"
+                            type="button"
+                            variant="destructive"
+                          >
+                            Delete
+                          </Button>
+                        )}
+                        <Button
+                          disabled={savingContentItem}
+                          onClick={() => { void saveContentItem() }}
+                          size="sm"
+                          type="button"
+                        >
+                          {savingContentItem ? 'Saving…' : 'Save'}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {def.fields.map((field) => (
+                        <ContentItemFieldEditor
+                          field={field}
+                          isNew={contentItemDraft.isNew}
+                          key={field.name}
+                          onChange={(value) => updateDraftField(field.name, value)}
+                          slug={contentItemDraft.slug}
+                          updateSlug={(nextSlug) => setContentItemDraft((current) => current && { ...current, slug: nextSlug })}
+                          value={contentItemDraft.data[field.name]}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ) : (
+                  <section className="flex min-h-[16rem] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+                    {items.length
+                      ? `Select a ${def.label.toLowerCase()} from the list, or click "Add ${def.label}" to create one.`
+                      : `No ${def.labelPlural.toLowerCase()} yet — click "Add ${def.label}" up top to create your first.`}
+                  </section>
+                )}
+              </section>
+            )
+          })()}
+          </div>
         </main>
       </div>
+
+      {mediaEditDraft && (() => {
+        const editingItem = media.find((entry) => entry.id === mediaEditDraft.id)
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            onClick={() => { if (!savingMediaAlt) { setMediaEditDraft(null) } }}
+            role="presentation"
+          >
+            <div
+              aria-labelledby="edit-media-alt-title"
+              aria-modal="true"
+              className="w-full max-w-md rounded-xl border border-border bg-card text-card-foreground shadow-xl"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+            >
+              <div className="space-y-1 border-b border-border p-5">
+                <h2 className="text-base font-semibold tracking-tight text-foreground" id="edit-media-alt-title">
+                  Edit alt text
+                </h2>
+                <p className="truncate text-xs text-muted-foreground" title={editingItem?.filename}>
+                  {editingItem?.filename}
+                </p>
+              </div>
+
+              {editingItem?.publicUrl && (
+                <div className="flex max-h-48 items-center justify-center overflow-hidden border-b border-border bg-white">
+                  <img
+                    alt={mediaEditDraft.alt || editingItem.filename}
+                    className="max-h-48 w-full object-contain"
+                    src={editingItem.publicUrl}
+                  />
+                </div>
+              )}
+
+              <div className="space-y-2 p-5">
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Alt text</span>
+                  <textarea
+                    autoFocus
+                    className="flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    onChange={(event) => setMediaEditDraft({ ...mediaEditDraft, alt: event.target.value })}
+                    placeholder="Describe the image for accessibility and SEO"
+                    value={mediaEditDraft.alt}
+                  />
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-border p-4">
+                <Button
+                  disabled={savingMediaAlt}
+                  onClick={() => setMediaEditDraft(null)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  disabled={savingMediaAlt}
+                  onClick={() => { void saveMediaAlt() }}
+                  size="sm"
+                  type="button"
+                >
+                  {savingMediaAlt ? 'Saving…' : 'Save'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {activeSubmission && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setActiveSubmission(null)}
+          role="presentation"
+        >
+          <div
+            aria-labelledby="submission-view-title"
+            aria-modal="true"
+            className="w-full max-w-2xl rounded-xl border border-border bg-card text-card-foreground shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="space-y-1 border-b border-border p-5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">
+                  {activeSubmission.formType} submission
+                </p>
+                <span className="text-xs text-muted-foreground">
+                  {activeSubmission.createdAt ? new Date(activeSubmission.createdAt + 'Z').toLocaleString() : ''}
+                </span>
+              </div>
+              <h2 className="text-base font-semibold tracking-tight text-foreground" id="submission-view-title">
+                {activeSubmission.subject || '(no subject)'}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                From <strong className="font-semibold text-foreground">{activeSubmission.name || '(no name)'}</strong>
+                {activeSubmission.email && (
+                  <>
+                    {' '}&middot;{' '}
+                    <a className="text-primary hover:underline" href={`mailto:${activeSubmission.email}`}>
+                      {activeSubmission.email}
+                    </a>
+                  </>
+                )}
+              </p>
+              {activeSubmission.sourcePath && (
+                <p className="truncate text-xs text-muted-foreground">Source: {activeSubmission.sourcePath}</p>
+              )}
+            </div>
+            <div className="max-h-[50vh] overflow-y-auto p-5">
+              <pre className="whitespace-pre-wrap break-words text-sm text-foreground">{activeSubmission.message || '(no message)'}</pre>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-border p-4">
+              <Button
+                onClick={() => { void archiveSubmission(activeSubmission, !activeSubmission.archived) }}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                {activeSubmission.archived ? 'Restore' : 'Archive'}
+              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setSubmissionDeleteConfirm(activeSubmission)}
+                  size="sm"
+                  type="button"
+                  variant="destructive"
+                >
+                  Delete
+                </Button>
+                <Button
+                  onClick={() => setActiveSubmission(null)}
+                  size="sm"
+                  type="button"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {submissionDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setSubmissionDeleteConfirm(null)}
+          role="presentation"
+        >
+          <div
+            aria-labelledby="delete-submission-title"
+            aria-modal="true"
+            className="w-full max-w-md rounded-xl border border-border bg-card text-card-foreground shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="space-y-1 border-b border-border p-5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-destructive">Delete submission</p>
+              <h2 className="text-base font-semibold tracking-tight text-foreground" id="delete-submission-title">
+                Delete this submission?
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                The submission from {submissionDeleteConfirm.name || submissionDeleteConfirm.email || 'this contact'} will be permanently removed.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-border p-4">
+              <Button onClick={() => setSubmissionDeleteConfirm(null)} size="sm" type="button" variant="outline">
+                Cancel
+              </Button>
+              <Button
+                onClick={() => { void deleteSubmission(submissionDeleteConfirm) }}
+                size="sm"
+                type="button"
+                variant="destructive"
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {contentItemDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setContentItemDeleteConfirm(null)}
+          role="presentation"
+        >
+          <div
+            aria-labelledby="delete-content-item-title"
+            aria-modal="true"
+            className="w-full max-w-md rounded-xl border border-border bg-card text-card-foreground shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="space-y-1 border-b border-border p-5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-destructive">Delete item</p>
+              <h2 className="text-base font-semibold tracking-tight text-foreground" id="delete-content-item-title">
+                Delete &ldquo;{contentItemDeleteConfirm.title}&rdquo;?
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                This removes the item from this collection. Pages or products that reference it may need to be updated. This cannot be undone.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-border p-4">
+              <Button
+                onClick={() => setContentItemDeleteConfirm(null)}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => { void deleteContentItemRecord(contentItemDeleteConfirm.type, contentItemDeleteConfirm.slug) }}
+                size="sm"
+                type="button"
+                variant="destructive"
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mediaDeleteConfirm && (() => {
+        const deletingThis = deletingMediaId === mediaDeleteConfirm.id
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            onClick={() => { if (!deletingThis) { setMediaDeleteConfirm(null) } }}
+            role="presentation"
+          >
+            <div
+              aria-labelledby="delete-media-title"
+              aria-modal="true"
+              className="w-full max-w-md rounded-xl border border-border bg-card text-card-foreground shadow-xl"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+            >
+              <div className="space-y-1 border-b border-border p-5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-destructive">Delete media</p>
+                <h2 className="text-base font-semibold tracking-tight text-foreground" id="delete-media-title">
+                  Delete &ldquo;{mediaDeleteConfirm.filename}&rdquo;?
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  This removes the file from the media library and storage. References in posts or products that still point to this file will break. This cannot be undone.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-border p-4">
+                <Button
+                  disabled={deletingThis}
+                  onClick={() => setMediaDeleteConfirm(null)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  disabled={deletingThis}
+                  onClick={() => { void deleteMediaItem(mediaDeleteConfirm) }}
+                  size="sm"
+                  type="button"
+                  variant="destructive"
+                >
+                  {deletingThis ? 'Deleting…' : 'Delete'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {unsavedProductDialog && (
         <div className={styles.modalOverlay} role="presentation">

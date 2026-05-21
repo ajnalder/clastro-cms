@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { timingSafeEqual } from "node:crypto";
 
 import { generateAiPostDraft, generateAiPostTitleIdeas } from "../../lib/ai";
+import type { CmsUserFeatureVisibility } from "../../lib/defaults";
 import {
   buildLogoutCookie,
   buildSessionCookie,
@@ -37,7 +38,7 @@ import {
   getActiveInvitationByEmail,
   getCmsUserById,
   getCmsUserByEmail,
-  getCmsFeatureFlags,
+  getCmsUserFeatureVisibility,
   getUserInvitationByTokenHash,
   getLinkedInConnectionByUserId,
   getLinkedInSettings,
@@ -55,7 +56,22 @@ import {
   getSiteSettings,
   listCmsUsers,
   listCatalogProducts,
+  archiveFormSubmission,
+  createFormSubmission,
+  deleteContentItem,
+  deleteFormSubmissionById,
+  deleteMediaRecord,
+  getContentItem,
+  getEmailSettings,
+  getFormSubmissionById,
+  listContentItems,
+  listFormSubmissions,
+  sendResendEmail,
+  upsertContentItem,
+  upsertEmailSettings,
+  getMediaById,
   listMedia,
+  updateMediaAlt,
   listPages,
   listPosts,
   listUserInvitations,
@@ -65,6 +81,7 @@ import {
   saveMediaRecord,
   upsertAiSettings,
   upsertCmsFeatureFlags,
+  upsertCmsUserFeatureVisibility,
   upsertLinkedInSettings,
   upsertCatalogProduct,
   updateCmsUserRole,
@@ -89,6 +106,14 @@ function notFound() {
 
 function badRequest(message: string) {
   return json({ error: message }, 400);
+}
+
+function normalizeFeatureVisibility(value: Partial<CmsUserFeatureVisibility> | null | undefined): CmsUserFeatureVisibility {
+  return {
+    showAiSettings: value?.showAiSettings !== false,
+    showAiBlogTools: value?.showAiBlogTools !== false,
+    showLinkedIn: value?.showLinkedIn !== false,
+  };
 }
 
 function wantsJsonResponse(request: Request) {
@@ -171,7 +196,7 @@ async function requireSuperAdmin(context: Parameters<APIRoute>[0]) {
 
 async function requireFeatureAccess(
   context: Parameters<APIRoute>[0],
-  feature: "ai" | "blog",
+  feature: "ai-blog-tools" | "ai-settings" | "blog" | "linkedin",
 ) {
   const auth = await requireAdmin(context);
 
@@ -179,12 +204,16 @@ async function requireFeatureAccess(
     return auth;
   }
 
-  if (isSuperAdminRole(auth.user.role)) {
+  if (isSuperAdminRole(auth.user.role) || feature === "blog") {
     return auth;
   }
 
-  const flags = await getCmsFeatureFlags(context.locals);
-  const allowed = feature === "ai" ? flags.showAiDashboard : flags.showBlog;
+  const visibility = await getCmsUserFeatureVisibility(context.locals, auth.user);
+  const allowed = feature === "ai-settings"
+    ? visibility.showAiSettings
+    : feature === "ai-blog-tools"
+      ? visibility.showAiBlogTools
+      : visibility.showLinkedIn;
 
   if (!allowed) {
     return {
@@ -199,18 +228,22 @@ async function requireFeatureAccess(
 async function canUserAccessFeature(
   context: Parameters<APIRoute>[0],
   user: Awaited<ReturnType<typeof getCurrentUser>>,
-  feature: "ai" | "blog",
+  feature: "ai-blog-tools" | "ai-settings" | "blog" | "linkedin",
 ) {
   if (!user) {
     return false;
   }
 
-  if (isSuperAdminRole(user.role)) {
+  if (isSuperAdminRole(user.role) || feature === "blog") {
     return true;
   }
 
-  const flags = await getCmsFeatureFlags(context.locals);
-  return feature === "ai" ? flags.showAiDashboard : flags.showBlog;
+  const visibility = await getCmsUserFeatureVisibility(context.locals, user);
+  return feature === "ai-settings"
+    ? visibility.showAiSettings
+    : feature === "ai-blog-tools"
+      ? visibility.showAiBlogTools
+      : visibility.showLinkedIn;
 }
 
 function getSegments(rawPath?: string) {
@@ -838,7 +871,7 @@ export const GET: APIRoute = async (context) => {
   }
 
   if (segments[0] === "linkedin" && segments[1] === "connect") {
-    const auth = await requireAdmin(context);
+    const auth = await requireFeatureAccess(context, "linkedin");
     if (auth.response || !auth.user) {
       return auth.response ?? json({ error: "Unauthorized" }, 401);
     }
@@ -934,7 +967,15 @@ export const GET: APIRoute = async (context) => {
         clientId,
         clientSecret,
       });
-      const userInfo = await fetchLinkedInUserInfo(token.access_token);
+      if (!token.access_token) {
+        return redirectToAdminWithLinkedInStatus(context.request, "error", "LinkedIn did not return an access token.");
+      }
+      const accessToken = token.access_token;
+      const userInfo = await fetchLinkedInUserInfo(accessToken);
+      if (!userInfo.sub) {
+        return redirectToAdminWithLinkedInStatus(context.request, "error", "LinkedIn user info did not include a subject identifier.");
+      }
+      const linkedInSub = userInfo.sub;
       const expiresAt = token.expires_in
         ? new Date(Date.now() + token.expires_in * 1000).toISOString()
         : undefined;
@@ -942,12 +983,12 @@ export const GET: APIRoute = async (context) => {
 
       await upsertLinkedInConnection(context.locals, {
         userId: auth.user.id,
-        linkedInSub: userInfo.sub,
+        linkedInSub,
         linkedInName: userInfo.name
           || [userInfo.given_name, userInfo.family_name].filter(Boolean).join(" ").trim()
-          || userInfo.sub,
+          || linkedInSub,
         linkedInEmail: userInfo.email,
-        accessToken: token.access_token,
+        accessToken,
         expiresAt,
         scope,
       });
@@ -963,7 +1004,7 @@ export const GET: APIRoute = async (context) => {
   }
 
   if (segments[0] === "linkedin" && segments[1] === "connection") {
-    const auth = await requireAdmin(context);
+    const auth = await requireFeatureAccess(context, "linkedin");
     if (auth.response || !auth.user) {
       return auth.response ?? json({ error: "Unauthorized" }, 401);
     }
@@ -985,7 +1026,7 @@ export const GET: APIRoute = async (context) => {
   }
 
   if (segments[0] === "linkedin" && segments[1] === "targets") {
-    const auth = await requireAdmin(context);
+    const auth = await requireFeatureAccess(context, "linkedin");
     if (auth.response || !auth.user) {
       return auth.response ?? json({ error: "Unauthorized" }, 401);
     }
@@ -1045,15 +1086,15 @@ export const GET: APIRoute = async (context) => {
 
   if (segments[0] === "feature-flags") {
     const auth = await requireAdmin(context);
-    if (auth.response) {
-      return auth.response;
+    if (auth.response || !auth.user) {
+      return auth.response ?? json({ error: "Unauthorized" }, 401);
     }
 
-    return json(await getCmsFeatureFlags(context.locals));
+    return json(await getCmsUserFeatureVisibility(context.locals, auth.user));
   }
 
   if (segments[0] === "ai-settings") {
-    const auth = await requireFeatureAccess(context, "ai");
+    const auth = await requireFeatureAccess(context, "ai-settings");
     if (auth.response) {
       return auth.response;
     }
@@ -1137,11 +1178,134 @@ export const GET: APIRoute = async (context) => {
     return json(await listMedia(context.locals));
   }
 
+  if (segments[0] === "content-items" && segments[1]) {
+    const auth = await requireAdmin(context);
+    if (auth.response) {
+      return auth.response;
+    }
+
+    const type = segments[1];
+
+    if (segments[2]) {
+      const item = await getContentItem(context.locals, type, segments[2]);
+      return item ? json(item) : notFound();
+    }
+
+    return json(await listContentItems(context.locals, type));
+  }
+
+  if (segments[0] === "email" && segments[1] === "settings") {
+    const auth = await requireAdmin(context);
+    if (auth.response) {
+      return auth.response;
+    }
+    const settings = await getEmailSettings(context.locals);
+    // Return a masked version of the API key
+    return json({
+      fromEmail: settings.fromEmail,
+      fromName: settings.fromName,
+      hasResendApiKey: Boolean(settings.resendApiKey),
+      notificationEmail: settings.notificationEmail,
+    });
+  }
+
+  if (segments[0] === "email" && segments[1] === "submissions") {
+    const auth = await requireAdmin(context);
+    if (auth.response) {
+      return auth.response;
+    }
+    const url = new URL(context.request.url);
+    const includeArchived = url.searchParams.get("archived") === "1";
+    return json(await listFormSubmissions(context.locals, { includeArchived }));
+  }
+
   return notFound();
 };
 
 export const POST: APIRoute = async (context) => {
   const segments = getSegments(context.params.path);
+
+  // PUBLIC: contact / generic form submissions from the public site
+  if (segments[0] === "forms" && segments[1]) {
+    const formType = segments[1];
+    let payload: Record<string, unknown> = {};
+
+    const contentType = context.request.headers.get("content-type") || "";
+    try {
+      if (contentType.includes("application/json")) {
+        const parsed = await context.request.json();
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          payload = parsed as Record<string, unknown>;
+        }
+      } else {
+        const form = await context.request.formData();
+        for (const [key, value] of form.entries()) {
+          payload[key] = typeof value === "string" ? value : String(value);
+        }
+      }
+    } catch {
+      return badRequest("Could not parse form payload.");
+    }
+
+    const name = typeof payload.name === "string" ? payload.name.trim() : "";
+    const email = typeof payload.email === "string" ? payload.email.trim() : "";
+    const subject = typeof payload.subject === "string" ? payload.subject.trim() : "";
+    const message = typeof payload.message === "string" ? payload.message.trim() : "";
+
+    if (!email && !name && !message) {
+      return badRequest("Submission must include at least a name, email, or message.");
+    }
+
+    const sourcePath = typeof payload._source === "string"
+      ? payload._source
+      : context.request.headers.get("referer") || undefined;
+
+    const submissionId = await createFormSubmission(context.locals, {
+      email,
+      formType,
+      message,
+      name,
+      rawData: payload,
+      sourcePath,
+      subject,
+    });
+
+    // Best-effort notification email via Resend
+    try {
+      const emailSettings = await getEmailSettings(context.locals);
+      if (emailSettings.resendApiKey && emailSettings.notificationEmail && emailSettings.fromEmail) {
+        const niceSubject = subject || `New ${formType} form submission`;
+        const lines = [
+          name && `From: ${name}`,
+          email && `Email: ${email}`,
+          subject && `Subject: ${subject}`,
+          sourcePath && `Source: ${sourcePath}`,
+          "",
+          message,
+        ].filter(Boolean).join("\n");
+        const html = lines
+          .split("\n")
+          .map((line) => (line ? `<p>${line.replace(/</g, "&lt;")}</p>` : "<br />"))
+          .join("");
+        await sendResendEmail({
+          apiKey: emailSettings.resendApiKey,
+          from: emailSettings.fromName
+            ? `${emailSettings.fromName} <${emailSettings.fromEmail}>`
+            : emailSettings.fromEmail,
+          html,
+          replyTo: email || undefined,
+          subject: `[${formType}] ${niceSubject}`,
+          text: lines,
+          to: emailSettings.notificationEmail,
+        });
+      }
+    } catch (error) {
+      console.warn("Resend notification failed:", error);
+      // Don't fail the form submission if email delivery fails
+    }
+
+    return json({ id: submissionId, ok: true });
+  }
 
   if (segments[0] === "auth" && segments[1] === "login") {
     const body = await parseLoginBody(context.request);
@@ -1253,6 +1417,7 @@ export const POST: APIRoute = async (context) => {
       passwordHash: await hashPassword(password),
       role: invitation.role,
     });
+    await upsertCmsUserFeatureVisibility(context.locals, userId, invitation.featureVisibility);
     await markUserInvitationAccepted(context.locals, invitation.id);
 
     const sessionToken = await createSessionToken(userId, getSessionSecret(context.locals));
@@ -1281,7 +1446,12 @@ export const POST: APIRoute = async (context) => {
       return auth.response ?? json({ error: "Unauthorized" }, 401);
     }
 
-    const body = await parseJsonBody<{ email?: string; name?: string; role?: string }>(context.request);
+    const body = await parseJsonBody<{
+      email?: string;
+      featureVisibility?: Partial<CmsUserFeatureVisibility>;
+      name?: string;
+      role?: string;
+    }>(context.request);
     const email = String(body?.email || "").trim().toLowerCase();
     const name = String(body?.name || "").trim();
     const role = normalizeCmsUserRole(body?.role);
@@ -1308,6 +1478,7 @@ export const POST: APIRoute = async (context) => {
     const invitation = await createUserInvitation(context.locals, {
       email,
       expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+      featureVisibility: normalizeFeatureVisibility(body?.featureVisibility),
       invitedByUserId: auth.user.id,
       name,
       role,
@@ -1323,7 +1494,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   if (segments[0] === "linkedin" && segments[1] === "disconnect") {
-    const auth = await requireAdmin(context);
+    const auth = await requireFeatureAccess(context, "linkedin");
     if (auth.response || !auth.user) {
       return auth.response ?? json({ error: "Unauthorized" }, 401);
     }
@@ -1333,7 +1504,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   if (segments[0] === "linkedin" && segments[1] === "target") {
-    const auth = await requireAdmin(context);
+    const auth = await requireFeatureAccess(context, "linkedin");
     if (auth.response || !auth.user) {
       return auth.response ?? json({ error: "Unauthorized" }, 401);
     }
@@ -1414,7 +1585,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   if (segments[0] === "ai" && segments[1] === "posts" && segments[2] === "titles") {
-    const auth = await requireFeatureAccess(context, "blog");
+    const auth = await requireFeatureAccess(context, "ai-blog-tools");
     if (auth.response) {
       return auth.response;
     }
@@ -1443,7 +1614,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   if (segments[0] === "ai" && segments[1] === "posts" && segments[2] === "generate") {
-    const auth = await requireFeatureAccess(context, "blog");
+    const auth = await requireFeatureAccess(context, "ai-blog-tools");
     if (auth.response) {
       return auth.response;
     }
@@ -1476,7 +1647,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   if (segments[0] === "linkedin" && segments[1] === "posts" && segments[2] === "share") {
-    const auth = await requireAdmin(context);
+    const auth = await requireFeatureAccess(context, "linkedin");
     if (auth.response || !auth.user) {
       return auth.response ?? json({ error: "Unauthorized" }, 401);
     }
@@ -1593,6 +1764,41 @@ export const PUT: APIRoute = async (context) => {
     return json({ ok: true });
   }
 
+  if (segments[0] === "users" && segments[2] === "features") {
+    const superAdminAuth = await requireSuperAdmin(context);
+    if (superAdminAuth.response || !superAdminAuth.user) {
+      return superAdminAuth.response ?? json({ error: "Unauthorized" }, 401);
+    }
+
+    const targetUser = await getCmsUserById(context.locals, segments[1]);
+
+    if (!targetUser) {
+      return notFound();
+    }
+
+    if (isSuperAdminRole(targetUser.role)) {
+      return json({ error: "Super admin feature access is always enabled." }, 403);
+    }
+
+    const body = await parseJsonBody<{
+      showAiBlogTools?: boolean;
+      showAiSettings?: boolean;
+      showLinkedIn?: boolean;
+    }>(context.request);
+
+    if (!body || typeof body !== "object") {
+      return badRequest("Invalid user feature visibility payload.");
+    }
+
+    const updatedUser = await upsertCmsUserFeatureVisibility(context.locals, targetUser.id, {
+      showAiSettings: body.showAiSettings !== false,
+      showAiBlogTools: body.showAiBlogTools !== false,
+      showLinkedIn: body.showLinkedIn !== false,
+    });
+
+    return json({ ok: true, user: updatedUser });
+  }
+
   if (segments[0] === "users" && segments[1]) {
     const ownerAuth = await requireOwner(context);
     if (ownerAuth.response || !ownerAuth.user) {
@@ -1622,7 +1828,7 @@ export const PUT: APIRoute = async (context) => {
   }
 
   if (segments[0] === "ai-settings") {
-    const featureAuth = await requireFeatureAccess(context, "ai");
+    const featureAuth = await requireFeatureAccess(context, "ai-settings");
     if (featureAuth.response) {
       return featureAuth.response;
     }
@@ -1643,7 +1849,8 @@ export const PUT: APIRoute = async (context) => {
           : existing.apiKey;
 
     await upsertAiSettings(context.locals, {
-      ...(next as Awaited<ReturnType<typeof getAiSettings>>),
+      ...existing,
+      ...(next as Partial<Awaited<ReturnType<typeof getAiSettings>>>),
       apiKey: nextApiKey,
     });
     return json({ ok: true });
@@ -1672,7 +1879,8 @@ export const PUT: APIRoute = async (context) => {
           : existing.accessToken;
 
     await upsertLinkedInSettings(context.locals, {
-      ...(next as Awaited<ReturnType<typeof getLinkedInSettings>>),
+      ...existing,
+      ...(next as Partial<Awaited<ReturnType<typeof getLinkedInSettings>>>),
       clientSecret: nextClientSecret,
       accessToken: nextAccessToken,
     });
@@ -1728,6 +1936,98 @@ export const PUT: APIRoute = async (context) => {
       slug: segments.slice(1).join("/"),
     } as CmsProductRecord);
 
+    return json({ ok: true });
+  }
+
+  if (segments[0] === "media" && segments[1]) {
+    const body = await parseJsonBody<{ alt?: string }>(context.request);
+    const existing = await getMediaById(context.locals, segments[1]);
+
+    if (!existing) {
+      return notFound();
+    }
+
+    await updateMediaAlt(context.locals, segments[1], typeof body?.alt === "string" ? body.alt : "");
+    return json({ ok: true });
+  }
+
+  if (segments[0] === "content-items" && segments[1] && segments[2]) {
+    const body = await parseJsonBody<{
+      data?: Record<string, unknown>;
+      published?: boolean;
+      slug?: string;
+    }>(context.request);
+
+    if (!body || typeof body !== "object") {
+      return badRequest("Invalid content item payload.");
+    }
+
+    const type = segments[1];
+    const slug = (typeof body.slug === "string" && body.slug) || segments[2];
+
+    const stored = await upsertContentItem(context.locals, {
+      data: (body.data && typeof body.data === "object") ? body.data : {},
+      published: Boolean(body.published),
+      slug,
+      type,
+    });
+
+    return json(stored);
+  }
+
+  if (segments[0] === "email" && segments[1] === "settings") {
+    const body = await parseJsonBody<{
+      fromEmail?: string;
+      fromName?: string;
+      notificationEmail?: string;
+      resendApiKey?: string;
+    }>(context.request);
+
+    if (!body || typeof body !== "object") {
+      return badRequest("Invalid email settings payload.");
+    }
+
+    const existing = await getEmailSettings(context.locals);
+    const next = {
+      fromEmail: typeof body.fromEmail === "string" ? body.fromEmail.trim() : existing.fromEmail,
+      fromName: typeof body.fromName === "string" ? body.fromName.trim() : existing.fromName,
+      notificationEmail: typeof body.notificationEmail === "string"
+        ? body.notificationEmail.trim()
+        : existing.notificationEmail,
+      resendApiKey: typeof body.resendApiKey === "string"
+        ? body.resendApiKey.trim()
+        : existing.resendApiKey,
+    };
+
+    await upsertEmailSettings(context.locals, next);
+
+    return json({
+      fromEmail: next.fromEmail,
+      fromName: next.fromName,
+      hasResendApiKey: Boolean(next.resendApiKey),
+      notificationEmail: next.notificationEmail,
+    });
+  }
+
+  return notFound();
+};
+
+export const PATCH: APIRoute = async (context) => {
+  const segments = getSegments(context.params.path);
+  const auth = await requireAdmin(context);
+  if (auth.response) {
+    return auth.response;
+  }
+
+  if (segments[0] === "email" && segments[1] === "submissions" && segments[2]) {
+    const existing = await getFormSubmissionById(context.locals, segments[2]);
+    if (!existing) {
+      return notFound();
+    }
+    const body = await parseJsonBody<{ archived?: boolean }>(context.request);
+    if (typeof body?.archived === "boolean") {
+      await archiveFormSubmission(context.locals, segments[2], body.archived);
+    }
     return json({ ok: true });
   }
 
@@ -1793,6 +2093,33 @@ export const DELETE: APIRoute = async (context) => {
 
   if (segments[0] === "products" && segments.length >= 2) {
     await deleteCatalogProductBySlug(context.locals, segments.slice(1).join("/"));
+    return json({ ok: true });
+  }
+
+  if (segments[0] === "media" && segments[1]) {
+    const existing = await getMediaById(context.locals, segments[1]);
+    if (!existing) {
+      return notFound();
+    }
+    await deleteMediaRecord(context.locals, segments[1]);
+    return json({ ok: true });
+  }
+
+  if (segments[0] === "content-items" && segments[1] && segments[2]) {
+    const existing = await getContentItem(context.locals, segments[1], segments[2]);
+    if (!existing) {
+      return notFound();
+    }
+    await deleteContentItem(context.locals, segments[1], segments[2]);
+    return json({ ok: true });
+  }
+
+  if (segments[0] === "email" && segments[1] === "submissions" && segments[2]) {
+    const existing = await getFormSubmissionById(context.locals, segments[2]);
+    if (!existing) {
+      return notFound();
+    }
+    await deleteFormSubmissionById(context.locals, segments[2]);
     return json({ ok: true });
   }
 

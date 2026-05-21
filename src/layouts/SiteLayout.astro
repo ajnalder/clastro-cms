@@ -36,8 +36,8 @@ const {
 const siteSettings = await getSiteSettings(Astro.locals);
 
 const seo = resolvePageSeo(Astro.url.pathname, {
-  title,
-  description,
+  title: title || siteSettings.socialShareTitle,
+  description: description || siteSettings.socialShareDescription,
   image: image || siteSettings.defaultOgImage,
   noindex,
   type,
@@ -61,12 +61,13 @@ const mergedSchema = [...defaultSchema, ...schemaItems];
 <html lang={lang}>
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" href={siteSettings.faviconUrl} />
+    <link rel="apple-touch-icon" href={siteSettings.appleTouchIconUrl} />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={seo.description} />
     <meta name="generator" content={Astro.generator} />
     <meta name="robots" content={seo.robots} />
+    <meta name="theme-color" content={siteSettings.themeColor} />
     <link rel="canonical" href={seo.canonicalUrl} />
     <meta property="og:site_name" content={siteSettings.siteName} />
     <meta property="og:locale" content="en_NZ" />

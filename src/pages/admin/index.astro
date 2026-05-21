@@ -1,6 +1,7 @@
 ---
 import { AdminApp } from "../../components/admin/AdminApp";
 import { getCurrentUser } from "../../lib/auth";
+import "../../styles/global.css";
 
 const user = await getCurrentUser(Astro.request, Astro.locals);
 

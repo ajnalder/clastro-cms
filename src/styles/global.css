@@ -1,11 +1,61 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 @theme {
 	--font-sans: "Outfit", sans-serif;
 	--font-plex: "IBM Plex Mono", monospace;
 }
 
+@theme inline {
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+}
+
 :root {
+	--radius: 0.75rem;
+
+	/* Light theme — slate bg with deep-navy primary + cyan accent */
+	--background: #f6f8fc;
+	--foreground: #0b1733;
+	--card: #ffffff;
+	--card-foreground: #0b1733;
+	--popover: #ffffff;
+	--popover-foreground: #0b1733;
+	--primary: #0b1733;
+	--primary-foreground: #ecfeff;
+	--secondary: #eef2f9;
+	--secondary-foreground: #0b1733;
+	--muted: #eef2f9;
+	--muted-foreground: #5a6783;
+	--accent: #ecfeff;
+	--accent-foreground: #0e7490;
+	--destructive: #dc2626;
+	--border: #e2e8f0;
+	--input: #e2e8f0;
+	--ring: #06b6d4;
+
+	/* Legacy public-site tokens (kept for non-admin pages) */
 	--color-bg: #f5f9ff;
 	--color-panel: #eef5ff;
 	--color-panel-strong: #e5efff;
@@ -19,6 +69,28 @@
 	--color-brand-gradient: linear-gradient(135deg, #ff0069 0%, #7b42ff 34%, #0062e6 100%);
 	--color-brand-gradient-soft: linear-gradient(135deg, rgba(255, 0, 105, 0.12) 0%, rgba(0, 98, 230, 0.12) 100%);
 	--radius-base: 0.5rem;
+}
+
+.dark {
+	/* Dark theme — deep navy base; surfaces lift via translucent white, not hue */
+	--background: #0a1228;
+	--foreground: #e6edfb;
+	--card: #0d1630;
+	--card-foreground: #e6edfb;
+	--popover: #0d1630;
+	--popover-foreground: #e6edfb;
+	--primary: #22d3ee;
+	--primary-foreground: #06121f;
+	--secondary: rgba(255, 255, 255, 0.04);
+	--secondary-foreground: #e6edfb;
+	--muted: rgba(255, 255, 255, 0.04);
+	--muted-foreground: #8a9ec5;
+	--accent: rgba(255, 255, 255, 0.05);
+	--accent-foreground: #a5f3fc;
+	--destructive: #f87171;
+	--border: rgba(255, 255, 255, 0.08);
+	--input: rgba(255, 255, 255, 0.12);
+	--ring: #22d3ee;
 }
 
 html {

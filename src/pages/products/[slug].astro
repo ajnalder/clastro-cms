@@ -1,6 +1,9 @@
 ---
-import Layout from "../../layouts/Layout.astro";
-import { getCatalogProductBySlug } from "../../lib/repository";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import {
+  getCatalogProductBySlug,
+  getContentItem,
+} from "../../lib/repository";
 
 export const prerender = false;
 
@@ -10,35 +13,122 @@ const product = await getCatalogProductBySlug(Astro.locals, slug);
 if (!product) {
   Astro.response.status = 404;
 }
+
+const category = product?.categorySlug
+  ? await getContentItem(Astro.locals, "category", product.categorySlug)
+  : null;
+const categoryData = (category?.data ?? {}) as {
+  description?: unknown;
+  name?: unknown;
+};
+const categoryName =
+  (typeof categoryData.name === "string" && categoryData.name) ||
+  product?.categoryLabel ||
+  "";
+const categoryDescription =
+  typeof categoryData.description === "string" ? categoryData.description : "";
+
+const galleryImages = product?.productImages?.slice(1) ?? [];
+const bestFor = product?.bestFor ?? [];
+const specNotes = product?.specNotes ?? [];
 ---
 
-<Layout
-  title={product?.metaTitle || product?.name || "Product Not Found"}
+<SiteLayout
   description={product?.metaDescription || product?.shortDescription || "The requested demo product could not be found."}
   image={product?.heroImageUrl}
   noindex={!product}
+  title={product?.metaTitle || product?.name || "Product Not Found"}
 >
-  <main class="page-shell">
-    {product ? (
-      <article class="product-detail">
-        <div>
-          <p class="eyebrow">{product.categoryLabel}</p>
-          <h1>{product.name}</h1>
-          <p>{product.overview || product.shortDescription}</p>
-          <dl class="detail-list">
-            <div><dt>Family</dt><dd>{product.familyName}</dd></div>
-            <div><dt>Type</dt><dd>{product.airconType}</dd></div>
-            <div><dt>Price</dt><dd>{product.priceLabel || (product.price ? `$${product.price}` : "Demo pricing")}</dd></div>
-          </dl>
-        </div>
-        {product.heroImageUrl && <img src={product.heroImageUrl} alt={product.heroImageAlt || ""} />}
-        <div class="rich-content" set:html={product.contentHtml} />
-      </article>
-    ) : (
+  {!product && (
+    <main class="page-shell section-pad">
       <section class="content-band">
         <h1>Product not found</h1>
-        <p>The requested demo product does not exist.</p>
+        <p>The requested product does not exist. <a href="/products">Browse the catalogue</a>.</p>
       </section>
-    )}
-  </main>
-</Layout>
+    </main>
+  )}
+
+  {product && (
+    <main class="page-shell section-pad">
+      <article class="product-detail">
+        <div>
+          <p class="eyebrow">{categoryName || "Product"}</p>
+          <h1>{product.name}</h1>
+          {product.overview && <p>{product.overview}</p>}
+          {!product.overview && product.shortDescription && (
+            <p>{product.shortDescription}</p>
+          )}
+          <dl class="detail-list">
+            {categoryName && (
+              <div>
+                <dt>Category</dt>
+                <dd>
+                  <a href={`/products#category-${product.categorySlug}`}>{categoryName}</a>
+                </dd>
+              </div>
+            )}
+            <div>
+              <dt>Price</dt>
+              <dd>{product.priceLabel || (product.price ? `$${product.price}` : "Demo pricing")}</dd>
+            </div>
+          </dl>
+          {categoryDescription && <p class="small">{categoryDescription}</p>}
+          <p>
+            <a class="text-link" href="/products">&larr; All products</a>
+          </p>
+        </div>
+        {product.heroImageUrl && (
+          <img alt={product.heroImageAlt || product.name} src={product.heroImageUrl} />
+        )}
+      </article>
+
+      {bestFor.length > 0 && (
+        <section class="section-stack">
+          <div class="section-heading">
+            <p class="eyebrow">Best for</p>
+            <h2>Who this is for.</h2>
+          </div>
+          <ul class="change-list">
+            {bestFor.map((line) => <li>{line}</li>)}
+          </ul>
+        </section>
+      )}
+
+      {product.contentHtml && (
+        <section class="section-stack">
+          <div class="content-band">
+            <div class="blog-prose" set:html={product.contentHtml} />
+          </div>
+        </section>
+      )}
+
+      {specNotes.length > 0 && (
+        <section class="section-stack">
+          <div class="section-heading">
+            <p class="eyebrow">Specs</p>
+            <h2>Notes &amp; details.</h2>
+          </div>
+          <ul class="change-list">
+            {specNotes.map((line) => <li>{line}</li>)}
+          </ul>
+        </section>
+      )}
+
+      {galleryImages.length > 0 && (
+        <section class="section-stack">
+          <div class="section-heading">
+            <p class="eyebrow">Gallery</p>
+            <h2>More views.</h2>
+          </div>
+          <div class="card-list">
+            {galleryImages.map((image) => (
+              <article>
+                <img alt={image.alt || product.name} src={image.url} />
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+    </main>
+  )}
+</SiteLayout>

@@ -571,7 +571,11 @@
               body: formData,
             });
             if (!response.ok) return;
-            const result = await response.json();
+            const result = (await response.json()) as {
+              alt?: string;
+              public_url?: string;
+              publicUrl?: string;
+            };
             setImageSource(
               String(result.publicUrl || result.public_url || ""),
               String(result.alt || ""),

@@ -1,7 +1,8 @@
-import { normalizeCmsUserRole, type CmsUserRole } from "./auth";
+import { isSuperAdminRole, normalizeCmsUserRole, type CmsUserRole } from "./auth";
 import {
   DEFAULT_AI_SETTINGS,
   DEFAULT_CMS_FEATURE_FLAGS,
+  DEFAULT_CMS_USER_FEATURE_VISIBILITY,
   DEFAULT_LINKEDIN_SETTINGS,
   DEFAULT_SITE_SETTINGS,
   LEGACY_BLOG_PROMPT_TEMPLATE,
@@ -10,6 +11,7 @@ import {
   LEGACY_IMAGE_PROMPT_TEMPLATE,
   type AiSettings,
   type CmsFeatureFlags,
+  type CmsUserFeatureVisibility,
   type LinkedInSettings,
   type SiteSettings,
 } from "./defaults";
@@ -36,6 +38,7 @@ export interface CmsPageRecord {
 export interface CmsPostRecord {
   authorName: string;
   authorRole: string;
+  authorSlug?: string;
   categories: Array<{ label: string }>;
   contentHtml: string;
   coverImageAlt?: string;
@@ -53,21 +56,12 @@ export interface CmsPostRecord {
 }
 
 export interface CmsProductRecord {
-  airconType: string;
   bestFor: string[];
-  brochureHref: string;
-  brochureLabel: string;
   categoryLabel: string;
   categorySlug: string;
   contentHtml: string;
-  coolingKw: number;
-  familyCode: string;
-  familyName: string;
   heroImageAlt?: string;
   heroImageUrl: string;
-  heatingKw: number;
-  installSummary: string;
-  installationCost: string;
   isFrontPage: boolean;
   metaDescription: string;
   metaTitle: string;
@@ -113,6 +107,7 @@ export interface LinkedInConnectionRecord {
 export interface CmsUserRecord {
   createdAt: string;
   email: string;
+  featureVisibility: CmsUserFeatureVisibility;
   id: string;
   name: string;
   role: CmsUserRole;
@@ -124,6 +119,7 @@ export interface CmsUserInvitationRecord {
   createdAt: string;
   email: string;
   expiresAt: string;
+  featureVisibility: CmsUserFeatureVisibility;
   id: string;
   invitedByUserId: string;
   name: string;
@@ -134,6 +130,8 @@ export interface CmsUserInvitationRecord {
 }
 
 let ensuredCmsFeatureFlagsTable = false;
+let ensuredSiteSettingsColumns = false;
+let ensuredUserFeatureVisibilityTable = false;
 
 function parseJson<T>(value: string | null | undefined, fallback: T) {
   if (!value) {
@@ -269,6 +267,9 @@ async function ensureUserInvitationsTable(locals?: App.Locals) {
         role TEXT NOT NULL DEFAULT 'editor',
         token_hash TEXT NOT NULL UNIQUE,
         invited_by_user_id TEXT NOT NULL,
+        show_ai_settings INTEGER NOT NULL DEFAULT 1,
+        show_ai_blog_tools INTEGER NOT NULL DEFAULT 1,
+        show_linkedin INTEGER NOT NULL DEFAULT 1,
         expires_at TEXT NOT NULL,
         accepted_at TEXT,
         revoked_at TEXT,
@@ -282,6 +283,23 @@ async function ensureUserInvitationsTable(locals?: App.Locals) {
     await db
       .prepare("CREATE INDEX IF NOT EXISTS idx_user_invitations_token_hash ON user_invitations(token_hash)")
       .run();
+    const columns = [
+      ["show_ai_settings", "INTEGER NOT NULL DEFAULT 1"],
+      ["show_ai_blog_tools", "INTEGER NOT NULL DEFAULT 1"],
+      ["show_linkedin", "INTEGER NOT NULL DEFAULT 1"],
+    ] as const;
+
+    for (const [column, type] of columns) {
+      try {
+        await db.prepare(`ALTER TABLE user_invitations ADD COLUMN ${column} ${type}`).run();
+      } catch (columnError) {
+        const message = columnError instanceof Error ? columnError.message : String(columnError);
+
+        if (!/duplicate column|already exists|duplicate/i.test(message)) {
+          console.warn(`ensureUserInvitationsTable failed for ${column}:`, columnError);
+        }
+      }
+    }
   } catch (error) {
     console.warn("ensureUserInvitationsTable failed:", error);
   }
@@ -312,25 +330,127 @@ async function ensureCmsFeatureFlagsTable(locals?: App.Locals) {
   ensuredCmsFeatureFlagsTable = true;
 }
 
+async function ensureUserFeatureVisibilityTable(locals?: App.Locals) {
+  const db = getDb(locals);
+
+  if (!db || ensuredUserFeatureVisibilityTable) {
+    return;
+  }
+
+  try {
+    await db
+      .prepare(`CREATE TABLE IF NOT EXISTS user_feature_visibility (
+        user_id TEXT PRIMARY KEY,
+        show_ai_settings INTEGER NOT NULL DEFAULT 1,
+        show_ai_blog_tools INTEGER NOT NULL DEFAULT 1,
+        show_linkedin INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`)
+      .run();
+  } catch (error) {
+    console.warn("ensureUserFeatureVisibilityTable failed:", error);
+  }
+
+  ensuredUserFeatureVisibilityTable = true;
+}
+
+async function ensureSiteSettingsColumns(locals?: App.Locals) {
+  const db = getDb(locals);
+
+  if (!db || ensuredSiteSettingsColumns) {
+    return;
+  }
+
+  const columns = [
+    ["favicon_url", "TEXT"],
+    ["apple_touch_icon_url", "TEXT"],
+    ["social_share_title", "TEXT"],
+    ["social_share_description", "TEXT"],
+    ["theme_color", "TEXT"],
+  ] as const;
+
+  for (const [column, type] of columns) {
+    try {
+      await db.prepare(`ALTER TABLE site_settings ADD COLUMN ${column} ${type}`).run();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      if (!/duplicate column|already exists|duplicate/i.test(message)) {
+        console.warn(`ensureSiteSettingsColumns failed for ${column}:`, error);
+      }
+    }
+  }
+
+  ensuredSiteSettingsColumns = true;
+}
+
+function normalizeCmsUserFeatureVisibility(
+  value: Partial<CmsUserFeatureVisibility> | null | undefined,
+): CmsUserFeatureVisibility {
+  return {
+    showAiBlogTools: value?.showAiBlogTools !== false,
+    showAiSettings: value?.showAiSettings !== false,
+    showLinkedIn: value?.showLinkedIn !== false,
+  };
+}
+
+function dbBoolean(value: unknown, fallback = true) {
+  if (value == null) {
+    return fallback;
+  }
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  return normalized !== "0" && normalized !== "false";
+}
+
+function mapUserFeatureVisibilityRow(
+  row: Record<string, unknown>,
+  role: CmsUserRole,
+): CmsUserFeatureVisibility {
+  if (isSuperAdminRole(role)) {
+    return DEFAULT_CMS_USER_FEATURE_VISIBILITY;
+  }
+
+  return normalizeCmsUserFeatureVisibility({
+    showAiSettings: dbBoolean(row.show_ai_settings),
+    showAiBlogTools: dbBoolean(row.show_ai_blog_tools),
+    showLinkedIn: dbBoolean(row.show_linkedin),
+  });
+}
+
 function mapUserRow(row: Record<string, unknown>): CmsUserRecord {
+  const role = normalizeCmsUserRole(String(row.role || ""));
+
   return {
     id: String(row.id || ""),
     email: String(row.email || ""),
     name: String(row.name || ""),
-    role: normalizeCmsUserRole(String(row.role || "")),
+    role,
+    featureVisibility: mapUserFeatureVisibilityRow(row, role),
     createdAt: String(row.created_at || ""),
     updatedAt: String(row.updated_at || ""),
   };
 }
 
 function mapUserInvitationRow(row: Record<string, unknown>): CmsUserInvitationRecord {
+  const role = normalizeCmsUserRole(String(row.role || ""));
+
   return {
     id: String(row.id || ""),
     email: String(row.email || ""),
     name: String(row.name || ""),
-    role: normalizeCmsUserRole(String(row.role || "")),
+    role,
     tokenHash: String(row.token_hash || ""),
     invitedByUserId: String(row.invited_by_user_id || ""),
+    featureVisibility: mapUserFeatureVisibilityRow(row, role),
     expiresAt: String(row.expires_at || ""),
     acceptedAt: row.accepted_at ? String(row.accepted_at) : undefined,
     revokedAt: row.revoked_at ? String(row.revoked_at) : undefined,
@@ -517,6 +637,7 @@ function mapPostRow(row: Record<string, unknown>): CmsPostRecord {
     readTime: row.read_time ? String(row.read_time) : undefined,
     authorName: String(row.author_name || "Clastro Editor"),
     authorRole: String(row.author_role || "CMS Demo Author"),
+    authorSlug: row.author_slug ? String(row.author_slug) : undefined,
     primaryCategory: String(row.primary_category || "CMS"),
     categories: parseJson<Array<{ label: string }>>(String(row.categories_json || "[]"), []),
     seoTitle: row.seo_title ? String(row.seo_title) : undefined,
@@ -537,23 +658,14 @@ function mapProductRow(row: Record<string, unknown>): CmsProductRecord {
     name: String(row.name || ""),
     price: row.price == null ? undefined : Number(row.price),
     priceLabel: row.price_label ? String(row.price_label) : undefined,
-    coolingKw: Number(row.cooling_kw || 0),
-    heatingKw: Number(row.heating_kw || 0),
     heroImageUrl: heroImage?.url || String(row.hero_image_url || ""),
     heroImageAlt: heroImage?.alt || (row.hero_image_alt ? String(row.hero_image_alt) : undefined),
     shortDescription: String(row.short_description || ""),
-    installationCost: String(row.installation_cost || ""),
     isFrontPage: Boolean(row.is_front_page),
-    airconType: String(row.aircon_type || ""),
     metaTitle: String(row.meta_title || ""),
     metaDescription: String(row.meta_description || ""),
-    familyCode: String(row.family_code || ""),
-    familyName: String(row.family_name || ""),
     categorySlug: String(row.category_slug || ""),
     categoryLabel: String(row.category_label || ""),
-    installSummary: String(row.install_summary || ""),
-    brochureLabel: String(row.brochure_label || ""),
-    brochureHref: String(row.brochure_href || ""),
     overview: String(row.overview || ""),
     bestFor: parseJson<string[]>(String(row.best_for_json || "[]"), []),
     specNotes: parseJson<string[]>(String(row.spec_notes_json || "[]"), []),
@@ -583,20 +695,33 @@ export async function listCmsUsers(locals?: App.Locals) {
     return [] as CmsUserRecord[];
   }
 
+  await ensureUserFeatureVisibilityTable(locals);
+
   const result = await db
     .prepare(
-      `SELECT id, email, name, role, created_at, updated_at
+      `SELECT
+         users.id,
+         users.email,
+         users.name,
+         users.role,
+         users.created_at,
+         users.updated_at,
+         user_feature_visibility.show_ai_settings,
+         user_feature_visibility.show_ai_blog_tools,
+         user_feature_visibility.show_linkedin
        FROM users
+       LEFT JOIN user_feature_visibility
+         ON user_feature_visibility.user_id = users.id
        ORDER BY
          CASE
-           WHEN lower(role) IN ('super_admin', 'super-admin', 'owner', 'master') THEN 0
-           WHEN lower(role) IN ('site_owner', 'site-owner', 'admin') THEN 1
-           WHEN lower(role) = 'editor' THEN 2
-           WHEN lower(role) = 'collaborator' THEN 3
+           WHEN lower(users.role) IN ('super_admin', 'super-admin', 'owner', 'master') THEN 0
+           WHEN lower(users.role) IN ('site_owner', 'site-owner', 'admin') THEN 1
+           WHEN lower(users.role) = 'editor' THEN 2
+           WHEN lower(users.role) = 'collaborator' THEN 3
            ELSE 4
          END,
-         name COLLATE NOCASE ASC,
-         email COLLATE NOCASE ASC`,
+         users.name COLLATE NOCASE ASC,
+         users.email COLLATE NOCASE ASC`,
     )
     .all();
 
@@ -610,8 +735,26 @@ export async function getCmsUserByEmail(locals: App.Locals | undefined, email: s
     return null;
   }
 
+  await ensureUserFeatureVisibilityTable(locals);
+
   const row = await db
-    .prepare("SELECT id, email, name, role, created_at, updated_at FROM users WHERE email = ? LIMIT 1")
+    .prepare(
+      `SELECT
+         users.id,
+         users.email,
+         users.name,
+         users.role,
+         users.created_at,
+         users.updated_at,
+         user_feature_visibility.show_ai_settings,
+         user_feature_visibility.show_ai_blog_tools,
+         user_feature_visibility.show_linkedin
+       FROM users
+       LEFT JOIN user_feature_visibility
+         ON user_feature_visibility.user_id = users.id
+       WHERE users.email = ?
+       LIMIT 1`,
+    )
     .bind(email.trim().toLowerCase())
     .first();
 
@@ -625,8 +768,26 @@ export async function getCmsUserById(locals: App.Locals | undefined, id: string)
     return null;
   }
 
+  await ensureUserFeatureVisibilityTable(locals);
+
   const row = await db
-    .prepare("SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = ? LIMIT 1")
+    .prepare(
+      `SELECT
+         users.id,
+         users.email,
+         users.name,
+         users.role,
+         users.created_at,
+         users.updated_at,
+         user_feature_visibility.show_ai_settings,
+         user_feature_visibility.show_ai_blog_tools,
+         user_feature_visibility.show_linkedin
+       FROM users
+       LEFT JOIN user_feature_visibility
+         ON user_feature_visibility.user_id = users.id
+       WHERE users.id = ?
+       LIMIT 1`,
+    )
     .bind(id)
     .first();
 
@@ -688,6 +849,72 @@ export async function updateCmsUserRole(
   return getCmsUserById(locals, id);
 }
 
+export async function getCmsUserFeatureVisibility(
+  locals: App.Locals | undefined,
+  user: { id: string; role: CmsUserRole } | null | undefined,
+): Promise<CmsUserFeatureVisibility> {
+  if (!user || isSuperAdminRole(user.role)) {
+    return DEFAULT_CMS_USER_FEATURE_VISIBILITY;
+  }
+
+  const db = getDb(locals);
+
+  if (!db) {
+    return DEFAULT_CMS_USER_FEATURE_VISIBILITY;
+  }
+
+  await ensureUserFeatureVisibilityTable(locals);
+
+  const row = await db
+    .prepare(
+      `SELECT show_ai_settings, show_ai_blog_tools, show_linkedin
+       FROM user_feature_visibility
+       WHERE user_id = ?
+       LIMIT 1`,
+    )
+    .bind(user.id)
+    .first();
+
+  return mapUserFeatureVisibilityRow(row ? (row as Record<string, unknown>) : {}, user.role);
+}
+
+export async function upsertCmsUserFeatureVisibility(
+  locals: App.Locals | undefined,
+  userId: string,
+  visibility: Partial<CmsUserFeatureVisibility>,
+) {
+  const db = getDb(locals);
+
+  if (!db) {
+    throw new Error("D1 binding is not configured.");
+  }
+
+  await ensureUserFeatureVisibilityTable(locals);
+
+  const normalized = normalizeCmsUserFeatureVisibility(visibility);
+
+  await db
+    .prepare(
+      `INSERT INTO user_feature_visibility (
+        user_id, show_ai_settings, show_ai_blog_tools, show_linkedin, updated_at
+      ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id) DO UPDATE SET
+        show_ai_settings = excluded.show_ai_settings,
+        show_ai_blog_tools = excluded.show_ai_blog_tools,
+        show_linkedin = excluded.show_linkedin,
+        updated_at = CURRENT_TIMESTAMP`,
+    )
+    .bind(
+      userId,
+      normalized.showAiSettings ? 1 : 0,
+      normalized.showAiBlogTools ? 1 : 0,
+      normalized.showLinkedIn ? 1 : 0,
+    )
+    .run();
+
+  return getCmsUserById(locals, userId);
+}
+
 export async function deleteCmsUser(locals: App.Locals | undefined, id: string) {
   const db = getDb(locals);
 
@@ -695,6 +922,8 @@ export async function deleteCmsUser(locals: App.Locals | undefined, id: string) 
     throw new Error("D1 binding is not configured.");
   }
 
+  await ensureUserFeatureVisibilityTable(locals);
+  await db.prepare("DELETE FROM user_feature_visibility WHERE user_id = ?").bind(id).run();
   await db.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
 }
 
@@ -777,6 +1006,7 @@ export async function createUserInvitation(
     expiresAt: string;
     id?: string;
     invitedByUserId: string;
+    featureVisibility?: Partial<CmsUserFeatureVisibility>;
     name: string;
     role: CmsUserRole;
     tokenHash: string;
@@ -791,12 +1021,15 @@ export async function createUserInvitation(
   await ensureUserInvitationsTable(locals);
 
   const id = input.id || crypto.randomUUID();
+  const featureVisibility = normalizeCmsUserFeatureVisibility(input.featureVisibility);
 
   await db
     .prepare(
       `INSERT INTO user_invitations (
-        id, email, name, role, token_hash, invited_by_user_id, expires_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        id, email, name, role, token_hash, invited_by_user_id,
+        show_ai_settings, show_ai_blog_tools, show_linkedin,
+        expires_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
     )
     .bind(
       id,
@@ -805,6 +1038,9 @@ export async function createUserInvitation(
       input.role,
       input.tokenHash,
       input.invitedByUserId,
+      featureVisibility.showAiSettings ? 1 : 0,
+      featureVisibility.showAiBlogTools ? 1 : 0,
+      featureVisibility.showLinkedIn ? 1 : 0,
       input.expiresAt,
     )
     .run();
@@ -863,6 +1099,8 @@ export async function getSiteSettings(locals?: App.Locals): Promise<SiteSettings
     return DEFAULT_SITE_SETTINGS;
   }
 
+  await ensureSiteSettingsColumns(locals);
+
   const row = await db.prepare("SELECT * FROM site_settings WHERE id = 'site' LIMIT 1").first();
 
   if (!row) {
@@ -872,7 +1110,12 @@ export async function getSiteSettings(locals?: App.Locals): Promise<SiteSettings
   return {
     siteName: String(row.site_name || DEFAULT_SITE_SETTINGS.siteName),
     siteUrl: String(row.site_url || DEFAULT_SITE_SETTINGS.siteUrl),
+    faviconUrl: String(row.favicon_url || DEFAULT_SITE_SETTINGS.faviconUrl),
+    appleTouchIconUrl: String(row.apple_touch_icon_url || DEFAULT_SITE_SETTINGS.appleTouchIconUrl),
     defaultOgImage: String(row.default_og_image || DEFAULT_SITE_SETTINGS.defaultOgImage),
+    socialShareTitle: String(row.social_share_title || DEFAULT_SITE_SETTINGS.socialShareTitle),
+    socialShareDescription: String(row.social_share_description || DEFAULT_SITE_SETTINGS.socialShareDescription),
+    themeColor: String(row.theme_color || DEFAULT_SITE_SETTINGS.themeColor),
     contactEmail: String(row.contact_email || DEFAULT_SITE_SETTINGS.contactEmail),
     contactPhone: String(row.contact_phone || DEFAULT_SITE_SETTINGS.contactPhone),
     navigation: parseJson(row.navigation_json as string, DEFAULT_SITE_SETTINGS.navigation),
@@ -1164,16 +1407,24 @@ export async function upsertSiteSettings(locals: App.Locals | undefined, setting
     throw new Error("D1 binding is not configured.");
   }
 
+  await ensureSiteSettingsColumns(locals);
+
   await db
     .prepare(
       `INSERT INTO site_settings (
-        id, site_name, site_url, default_og_image, navigation_json, footer_json, booking_json,
-        contact_email, contact_phone, updated_at
-      ) VALUES ('site', ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        id, site_name, site_url, favicon_url, apple_touch_icon_url, default_og_image,
+        social_share_title, social_share_description, theme_color, navigation_json,
+        footer_json, booking_json, contact_email, contact_phone, updated_at
+      ) VALUES ('site', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(id) DO UPDATE SET
         site_name = excluded.site_name,
         site_url = excluded.site_url,
+        favicon_url = excluded.favicon_url,
+        apple_touch_icon_url = excluded.apple_touch_icon_url,
         default_og_image = excluded.default_og_image,
+        social_share_title = excluded.social_share_title,
+        social_share_description = excluded.social_share_description,
+        theme_color = excluded.theme_color,
         navigation_json = excluded.navigation_json,
         footer_json = excluded.footer_json,
         booking_json = excluded.booking_json,
@@ -1184,7 +1435,12 @@ export async function upsertSiteSettings(locals: App.Locals | undefined, setting
     .bind(
       settings.siteName,
       settings.siteUrl,
+      settings.faviconUrl,
+      settings.appleTouchIconUrl,
       settings.defaultOgImage,
+      settings.socialShareTitle,
+      settings.socialShareDescription,
+      settings.themeColor,
       JSON.stringify(settings.navigation),
       JSON.stringify(settings.footer),
       JSON.stringify(settings.booking),
@@ -1530,9 +1786,9 @@ export async function upsertPost(locals: App.Locals | undefined, post: CmsPostRe
     .prepare(
       `INSERT INTO posts (
         id, slug, title, excerpt, content_html, cover_image_url, cover_image_alt, featured, published,
-        published_at, read_time, author_name, author_role, primary_category, categories_json, seo_title,
+        published_at, read_time, author_name, author_role, author_slug, primary_category, categories_json, seo_title,
         seo_description, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(slug) DO UPDATE SET
         title = excluded.title,
         excerpt = excluded.excerpt,
@@ -1545,6 +1801,7 @@ export async function upsertPost(locals: App.Locals | undefined, post: CmsPostRe
         read_time = excluded.read_time,
         author_name = excluded.author_name,
         author_role = excluded.author_role,
+        author_slug = excluded.author_slug,
         primary_category = excluded.primary_category,
         categories_json = excluded.categories_json,
         seo_title = excluded.seo_title,
@@ -1565,6 +1822,7 @@ export async function upsertPost(locals: App.Locals | undefined, post: CmsPostRe
       sanitizedPost.readTime || null,
       sanitizedPost.authorName,
       sanitizedPost.authorRole,
+      sanitizedPost.authorSlug || null,
       sanitizedPost.primaryCategory,
       JSON.stringify(sanitizedPost.categories),
       sanitizedPost.seoTitle || null,
@@ -1599,8 +1857,8 @@ export async function listCatalogProducts(
   const result = await db
     .prepare(
       options?.includeUnpublished
-        ? "SELECT * FROM products ORDER BY published DESC, category_slug ASC, heating_kw ASC, price ASC, slug ASC"
-        : "SELECT * FROM products WHERE published = 1 ORDER BY category_slug ASC, heating_kw ASC, price ASC, slug ASC",
+        ? "SELECT * FROM products ORDER BY published DESC, category_slug ASC, price ASC, slug ASC"
+        : "SELECT * FROM products WHERE published = 1 ORDER BY category_slug ASC, price ASC, slug ASC",
     )
     .all();
 
@@ -1660,32 +1918,23 @@ export async function upsertCatalogProduct(locals: App.Locals | undefined, produ
   await db
     .prepare(
       `INSERT INTO products (
-        id, slug, name, price, price_label, cooling_kw, heating_kw, hero_image_url, hero_image_alt,
-        short_description, installation_cost, is_front_page, aircon_type, meta_title, meta_description,
-        family_code, family_name, category_slug, category_label, install_summary, brochure_label,
-        brochure_href, overview, best_for_json, spec_notes_json, content_html, product_images_json, published, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        id, slug, name, price, price_label, hero_image_url, hero_image_alt,
+        short_description, is_front_page, meta_title, meta_description,
+        category_slug, category_label, overview, best_for_json, spec_notes_json,
+        content_html, product_images_json, published, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(slug) DO UPDATE SET
         name = excluded.name,
         price = excluded.price,
         price_label = excluded.price_label,
-        cooling_kw = excluded.cooling_kw,
-        heating_kw = excluded.heating_kw,
         hero_image_url = excluded.hero_image_url,
         hero_image_alt = excluded.hero_image_alt,
         short_description = excluded.short_description,
-        installation_cost = excluded.installation_cost,
         is_front_page = excluded.is_front_page,
-        aircon_type = excluded.aircon_type,
         meta_title = excluded.meta_title,
         meta_description = excluded.meta_description,
-        family_code = excluded.family_code,
-        family_name = excluded.family_name,
         category_slug = excluded.category_slug,
         category_label = excluded.category_label,
-        install_summary = excluded.install_summary,
-        brochure_label = excluded.brochure_label,
-        brochure_href = excluded.brochure_href,
         overview = excluded.overview,
         best_for_json = excluded.best_for_json,
         spec_notes_json = excluded.spec_notes_json,
@@ -1700,23 +1949,14 @@ export async function upsertCatalogProduct(locals: App.Locals | undefined, produ
       product.name,
       product.price ?? null,
       product.priceLabel || null,
-      product.coolingKw,
-      product.heatingKw,
       heroImage?.url || product.heroImageUrl,
       heroImage?.alt || product.heroImageAlt || null,
       product.shortDescription,
-      product.installationCost,
       product.isFrontPage ? 1 : 0,
-      product.airconType,
       product.metaTitle,
       product.metaDescription,
-      product.familyCode,
-      product.familyName,
       product.categorySlug,
       product.categoryLabel,
-      product.installSummary,
-      product.brochureLabel,
-      product.brochureHref,
       product.overview,
       JSON.stringify(product.bestFor),
       JSON.stringify(product.specNotes),
@@ -1823,6 +2063,433 @@ export async function saveMediaRecord(
     id,
     publicUrl,
   } satisfies CmsMediaRecord;
+}
+
+export async function getMediaById(locals: App.Locals | undefined, id: string) {
+  const db = getDb(locals);
+
+  if (!db) {
+    return null;
+  }
+
+  const row = await db
+    .prepare("SELECT * FROM media WHERE id = ? LIMIT 1")
+    .bind(id)
+    .first();
+
+  return row ? mapMediaRow(row) : null;
+}
+
+export async function updateMediaAlt(
+  locals: App.Locals | undefined,
+  id: string,
+  alt: string,
+) {
+  const db = getDb(locals);
+
+  if (!db) {
+    throw new Error("D1 binding is not configured.");
+  }
+
+  await db
+    .prepare("UPDATE media SET alt = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+    .bind(alt || null, id)
+    .run();
+}
+
+export async function deleteMediaRecord(
+  locals: App.Locals | undefined,
+  id: string,
+) {
+  const db = getDb(locals);
+
+  if (!db) {
+    throw new Error("D1 binding is not configured.");
+  }
+
+  const existing = await getMediaById(locals, id);
+
+  if (!existing) {
+    return;
+  }
+
+  await db.prepare("DELETE FROM media WHERE id = ?").bind(id).run();
+
+  const bucket = getMediaBucket(locals);
+  if (bucket && existing.r2Key) {
+    try {
+      await bucket.delete(existing.r2Key);
+    } catch {
+      // R2 deletion failure shouldn't block DB cleanup
+    }
+  }
+}
+
+export interface CmsContentItemRecord {
+  createdAt?: string;
+  data: Record<string, unknown>;
+  id: string;
+  published: boolean;
+  slug: string;
+  type: string;
+  updatedAt?: string;
+}
+
+function mapContentItemRow(row: Record<string, unknown>): CmsContentItemRecord {
+  let data: Record<string, unknown> = {};
+  const raw = typeof row.data === "string" ? row.data : "";
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        data = parsed as Record<string, unknown>;
+      }
+    } catch {
+      data = {};
+    }
+  }
+
+  return {
+    createdAt: typeof row.created_at === "string" ? row.created_at : undefined,
+    data,
+    id: String(row.id || ""),
+    published: row.published === 1 || row.published === true,
+    slug: String(row.slug || ""),
+    type: String(row.type || ""),
+    updatedAt: typeof row.updated_at === "string" ? row.updated_at : undefined,
+  };
+}
+
+export async function listContentItems(
+  locals: App.Locals | undefined,
+  type: string,
+) {
+  const db = getDb(locals);
+  if (!db) {
+    return [] as CmsContentItemRecord[];
+  }
+  const result = await db
+    .prepare(
+      "SELECT * FROM content_items WHERE type = ? ORDER BY datetime(updated_at) DESC, slug ASC",
+    )
+    .bind(type)
+    .all();
+  return (result.results || []).map((row) =>
+    mapContentItemRow(row as Record<string, unknown>),
+  );
+}
+
+export async function getContentItem(
+  locals: App.Locals | undefined,
+  type: string,
+  slug: string,
+) {
+  const db = getDb(locals);
+  if (!db) {
+    return null;
+  }
+  const row = await db
+    .prepare("SELECT * FROM content_items WHERE type = ? AND slug = ? LIMIT 1")
+    .bind(type, slug)
+    .first();
+  return row ? mapContentItemRow(row) : null;
+}
+
+export async function upsertContentItem(
+  locals: App.Locals | undefined,
+  input: {
+    data: Record<string, unknown>;
+    id?: string;
+    published?: boolean;
+    slug: string;
+    type: string;
+  },
+) {
+  const db = getDb(locals);
+  if (!db) {
+    throw new Error("D1 binding is not configured.");
+  }
+
+  const id = input.id || crypto.randomUUID();
+  const dataJson = JSON.stringify(input.data || {});
+  const published = input.published ? 1 : 0;
+
+  await db
+    .prepare(
+      `INSERT INTO content_items (id, type, slug, data, published, updated_at)
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(type, slug) DO UPDATE SET
+         data = excluded.data,
+         published = excluded.published,
+         updated_at = CURRENT_TIMESTAMP`,
+    )
+    .bind(id, input.type, input.slug, dataJson, published)
+    .run();
+
+  const stored = await getContentItem(locals, input.type, input.slug);
+  return stored ?? {
+    data: input.data,
+    id,
+    published: Boolean(input.published),
+    slug: input.slug,
+    type: input.type,
+  } satisfies CmsContentItemRecord;
+}
+
+export async function deleteContentItem(
+  locals: App.Locals | undefined,
+  type: string,
+  slug: string,
+) {
+  const db = getDb(locals);
+  if (!db) {
+    throw new Error("D1 binding is not configured.");
+  }
+  await db
+    .prepare("DELETE FROM content_items WHERE type = ? AND slug = ?")
+    .bind(type, slug)
+    .run();
+}
+
+// ── Email settings + form submissions ─────────────────────────────────
+
+export interface EmailSettings {
+  fromEmail: string;
+  fromName: string;
+  notificationEmail: string;
+  resendApiKey: string;
+}
+
+const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
+  fromEmail: "",
+  fromName: "",
+  notificationEmail: "",
+  resendApiKey: "",
+};
+
+export async function getEmailSettings(locals?: App.Locals): Promise<EmailSettings> {
+  const db = getDb(locals);
+  if (!db) {
+    return { ...DEFAULT_EMAIL_SETTINGS };
+  }
+
+  try {
+    const row = await db.prepare("SELECT * FROM email_settings WHERE id = 1 LIMIT 1").first();
+    if (!row) {
+      return { ...DEFAULT_EMAIL_SETTINGS };
+    }
+    const storedKey = String(row.resend_api_key_encrypted || "");
+    const apiKey = storedKey
+      ? await decryptStoredSecret(storedKey, getAiSettingsEncryptionSecret(locals))
+      : "";
+    return {
+      fromEmail: String(row.from_email || ""),
+      fromName: String(row.from_name || ""),
+      notificationEmail: String(row.notification_email || ""),
+      resendApiKey: apiKey,
+    };
+  } catch (error) {
+    console.warn("getEmailSettings fallback:", error);
+    return { ...DEFAULT_EMAIL_SETTINGS };
+  }
+}
+
+export async function upsertEmailSettings(
+  locals: App.Locals | undefined,
+  settings: EmailSettings,
+) {
+  const db = getDb(locals);
+  if (!db) {
+    throw new Error("D1 binding is not configured.");
+  }
+
+  const encrypted = settings.resendApiKey
+    ? await encryptStoredSecret(settings.resendApiKey, getAiSettingsEncryptionSecret(locals))
+    : "";
+
+  await db
+    .prepare(
+      `INSERT INTO email_settings (id, resend_api_key_encrypted, notification_email, from_email, from_name, updated_at)
+       VALUES (1, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(id) DO UPDATE SET
+         resend_api_key_encrypted = excluded.resend_api_key_encrypted,
+         notification_email = excluded.notification_email,
+         from_email = excluded.from_email,
+         from_name = excluded.from_name,
+         updated_at = CURRENT_TIMESTAMP`,
+    )
+    .bind(encrypted || null, settings.notificationEmail || null, settings.fromEmail || null, settings.fromName || null)
+    .run();
+}
+
+export interface FormSubmissionRecord {
+  archived: boolean;
+  createdAt: string;
+  email: string;
+  formType: string;
+  id: string;
+  message: string;
+  name: string;
+  rawData: Record<string, unknown>;
+  sourcePath?: string;
+  subject: string;
+}
+
+function mapFormSubmissionRow(row: Record<string, unknown>): FormSubmissionRecord {
+  let rawData: Record<string, unknown> = {};
+  const raw = typeof row.raw_data === "string" ? row.raw_data : "";
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        rawData = parsed as Record<string, unknown>;
+      }
+    } catch {
+      rawData = {};
+    }
+  }
+  return {
+    archived: row.archived === 1 || row.archived === true,
+    createdAt: String(row.created_at || ""),
+    email: String(row.email || ""),
+    formType: String(row.form_type || "contact"),
+    id: String(row.id || ""),
+    message: String(row.message || ""),
+    name: String(row.name || ""),
+    rawData,
+    sourcePath: row.source_path ? String(row.source_path) : undefined,
+    subject: String(row.subject || ""),
+  };
+}
+
+export async function listFormSubmissions(
+  locals: App.Locals | undefined,
+  options: { includeArchived?: boolean } = {},
+) {
+  const db = getDb(locals);
+  if (!db) {
+    return [] as FormSubmissionRecord[];
+  }
+  const query = options.includeArchived
+    ? "SELECT * FROM form_submissions ORDER BY datetime(created_at) DESC"
+    : "SELECT * FROM form_submissions WHERE archived = 0 ORDER BY datetime(created_at) DESC";
+  const result = await db.prepare(query).all();
+  return (result.results || []).map((row) => mapFormSubmissionRow(row as Record<string, unknown>));
+}
+
+export async function getFormSubmissionById(
+  locals: App.Locals | undefined,
+  id: string,
+) {
+  const db = getDb(locals);
+  if (!db) {
+    return null;
+  }
+  const row = await db
+    .prepare("SELECT * FROM form_submissions WHERE id = ? LIMIT 1")
+    .bind(id)
+    .first();
+  return row ? mapFormSubmissionRow(row) : null;
+}
+
+export async function createFormSubmission(
+  locals: App.Locals | undefined,
+  input: {
+    email?: string;
+    formType?: string;
+    message?: string;
+    name?: string;
+    rawData?: Record<string, unknown>;
+    sourcePath?: string;
+    subject?: string;
+  },
+) {
+  const db = getDb(locals);
+  if (!db) {
+    throw new Error("D1 binding is not configured.");
+  }
+
+  const id = crypto.randomUUID();
+  await db
+    .prepare(
+      `INSERT INTO form_submissions (id, form_type, name, email, subject, message, raw_data, source_path)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      id,
+      input.formType || "contact",
+      input.name || null,
+      input.email || null,
+      input.subject || null,
+      input.message || null,
+      JSON.stringify(input.rawData || {}),
+      input.sourcePath || null,
+    )
+    .run();
+
+  return id;
+}
+
+export async function archiveFormSubmission(
+  locals: App.Locals | undefined,
+  id: string,
+  archived: boolean,
+) {
+  const db = getDb(locals);
+  if (!db) {
+    throw new Error("D1 binding is not configured.");
+  }
+  await db
+    .prepare("UPDATE form_submissions SET archived = ? WHERE id = ?")
+    .bind(archived ? 1 : 0, id)
+    .run();
+}
+
+export async function deleteFormSubmissionById(
+  locals: App.Locals | undefined,
+  id: string,
+) {
+  const db = getDb(locals);
+  if (!db) {
+    throw new Error("D1 binding is not configured.");
+  }
+  await db.prepare("DELETE FROM form_submissions WHERE id = ?").bind(id).run();
+}
+
+export async function sendResendEmail(input: {
+  apiKey: string;
+  from: string;
+  html?: string;
+  replyTo?: string;
+  subject: string;
+  text?: string;
+  to: string;
+}) {
+  if (!input.apiKey) {
+    throw new Error("Resend API key is not configured.");
+  }
+  const response = await fetch("https://api.resend.com/emails", {
+    body: JSON.stringify({
+      from: input.from,
+      to: input.to,
+      subject: input.subject,
+      html: input.html,
+      text: input.text,
+      reply_to: input.replyTo,
+    }),
+    headers: {
+      Authorization: `Bearer ${input.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Resend failed (${response.status}): ${detail || response.statusText}`);
+  }
+
+  return (await response.json()) as { id?: string };
 }
 
 export async function putMediaObject(

@@ -385,6 +385,7 @@
   background: var(--color-navy);
   color: #fff;
   margin-top: 3rem;
+  padding-bottom: max(2rem, env(safe-area-inset-bottom, 0px));
 }
 
 .site-footer-main {

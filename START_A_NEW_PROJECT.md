@@ -2,6 +2,8 @@
 
 Use this folder as the baseline whenever a new site should follow the workers-only Clastro CMS pattern.
 
+> **For the LLM doing the build**: read [`AGENTS.md`](AGENTS.md) first. It documents the conventions (auto-slug, content items, reference fields, image uploads, what not to do) that every previous build has converged on.
+
 ## What Stays The Same
 
 - Astro on Cloudflare Workers
@@ -21,8 +23,11 @@ Do not redesign the backend pattern unless the brief explicitly asks for it.
 - public content
 - page inventory
 - SEO targets
+- **content item types** (team members, locations, FAQs, testimonials, brands, cuisines — declare them in `src/lib/content-types.ts` per project)
 - migrations and integrations
 - the initial super admin, site owner, editor, and collaborator assignments
+
+For repeatable content beyond the built-in Pages, Posts, and Products, use the content-items pattern documented in `AGENTS.md` rather than adding new DB tables.
 
 ## New Build Workflow
 

@@ -40,6 +40,12 @@ export interface CmsFeatureFlags {
   showBlog: boolean;
 }
 
+export interface CmsUserFeatureVisibility {
+  showAiBlogTools: boolean;
+  showAiSettings: boolean;
+  showLinkedIn: boolean;
+}
+
 export interface LinkedInSettings {
   accessToken: string;
   authorUrn: string;
@@ -68,9 +74,11 @@ export interface SiteSettings {
       title: string;
     };
   };
+  appleTouchIconUrl: string;
   contactEmail: string;
   contactPhone: string;
   defaultOgImage: string;
+  faviconUrl: string;
   footer: {
     columns: FooterColumn[];
     ctaLink: string;
@@ -86,8 +94,11 @@ export interface SiteSettings {
     phoneLink: string;
     phoneText: string;
   };
+  socialShareDescription: string;
+  socialShareTitle: string;
   siteName: string;
   siteUrl: string;
+  themeColor: string;
 }
 
 export const LEGACY_BLOG_PROMPT_TEMPLATE =
@@ -104,7 +115,13 @@ export const LEGACY_IMAGE_PROMPT_TEMPLATE =
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   siteName: "Clastro Demo",
   siteUrl: "https://clastro-cms-demo.ajnalder.workers.dev",
+  faviconUrl: "/favicon.svg",
+  appleTouchIconUrl: "/images/clastro-logo.svg",
   defaultOgImage: "/images/clastro-logo.svg",
+  socialShareTitle: "Clastro Demo | CMS Starter",
+  socialShareDescription:
+    "A generic Clastro CMS starter site for testing content, media, roles, products, posts, and live editing.",
+  themeColor: "#020024",
   contactEmail: "hello@clastro.local",
   contactPhone: "+64 21 000 0000",
   navigation: {
@@ -211,6 +228,12 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
 export const DEFAULT_CMS_FEATURE_FLAGS: CmsFeatureFlags = {
   showAiDashboard: true,
   showBlog: true,
+};
+
+export const DEFAULT_CMS_USER_FEATURE_VISIBILITY: CmsUserFeatureVisibility = {
+  showAiBlogTools: true,
+  showAiSettings: true,
+  showLinkedIn: true,
 };
 
 export const DEFAULT_LINKEDIN_SETTINGS: LinkedInSettings = {

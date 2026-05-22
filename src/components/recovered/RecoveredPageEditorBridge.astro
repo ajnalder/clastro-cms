@@ -370,15 +370,20 @@
         toolbar.style.display = "flex";
         const toolbarHeight = toolbar.offsetHeight || 42;
         const toolbarWidth = toolbar.offsetWidth || 560;
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
 
-        let top = rect.top + window.scrollY - toolbarHeight - gap;
-        if (rect.top < toolbarHeight + gap) {
-          top = rect.bottom + window.scrollY + gap;
+        // Toolbar is position:fixed — work in viewport coordinates only.
+        // Prefer above the selection; flip below if there's no room.
+        let top = rect.top - toolbarHeight - gap;
+        if (top < 12) {
+          top = Math.min(viewportHeight - toolbarHeight - 12, rect.bottom + gap);
         }
+        top = Math.max(12, Math.min(viewportHeight - toolbarHeight - 12, top));
 
-        const desiredLeft = rect.left + window.scrollX;
-        const maxLeft = window.scrollX + window.innerWidth - toolbarWidth - 12;
-        const left = Math.max(window.scrollX + 12, Math.min(maxLeft, desiredLeft));
+        const desiredLeft = rect.left;
+        const maxLeft = viewportWidth - toolbarWidth - 12;
+        const left = Math.max(12, Math.min(maxLeft, desiredLeft));
 
         toolbar.style.top = `${top}px`;
         toolbar.style.left = `${left}px`;
@@ -470,10 +475,13 @@
         imageToolbar.style.display = "flex";
         const toolbarHeight = imageToolbar.offsetHeight || 60;
         const toolbarWidth = imageToolbar.offsetWidth || 420;
-        const top = Math.max(window.scrollY + 12, rect.top + window.scrollY + 16);
-        const centeredLeft = rect.left + window.scrollX + rect.width / 2 - toolbarWidth / 2;
-        const maxLeft = window.scrollX + window.innerWidth - toolbarWidth - 12;
-        const left = Math.max(window.scrollX + 12, Math.min(maxLeft, centeredLeft));
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+        // position:fixed — work in viewport coordinates only.
+        const top = Math.max(12, Math.min(viewportHeight - toolbarHeight - 12, rect.top + 16));
+        const centeredLeft = rect.left + rect.width / 2 - toolbarWidth / 2;
+        const maxLeft = viewportWidth - toolbarWidth - 12;
+        const left = Math.max(12, Math.min(maxLeft, centeredLeft));
         imageToolbar.style.top = `${top}px`;
         imageToolbar.style.left = `${left}px`;
 
@@ -824,19 +832,31 @@
         }
       });
 
+      let lastPointerDownTarget: Node | null = null;
+      document.addEventListener("pointerdown", (event) => {
+        lastPointerDownTarget = event.target instanceof Node ? event.target : null;
+      }, true);
+
+      const pointInActiveContext = (node: Node | null) => {
+        if (!node) return false;
+        if (activeNode && activeNode.contains(node)) return true;
+        if (toolbar.contains(node)) return true;
+        if (activeImageNode && (activeImageNode.contains(node) || node === activeImageNode)) return true;
+        if (imageToolbar.contains(node)) return true;
+        if (node instanceof Element && node.closest(".visual-editor-media-modal")) return true;
+        return false;
+      };
+
       document.addEventListener("click", (event) => {
         const target = event.target;
         if (!(target instanceof Node)) return;
-        if (activeNode && (activeNode.contains(target) || toolbar.contains(target))) return;
-        if (
-          activeImageNode &&
-          (activeImageNode.contains(target) ||
-            target === activeImageNode ||
-            imageToolbar.contains(target) ||
-            target instanceof Element && target.closest(".visual-editor-media-modal"))
-        ) {
-          return;
-        }
+
+        // If the gesture started inside the active editor / toolbar (i.e. this
+        // click is the tail of a drag-select that left the box), don't deactivate.
+        if (pointInActiveContext(lastPointerDownTarget)) return;
+
+        // Click target itself is inside active context.
+        if (pointInActiveContext(target)) return;
 
         deactivateNode();
         deactivateImageNode();
@@ -1040,7 +1060,7 @@
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     gap: 4px;
     padding: 4px;
-    position: absolute;
+    position: fixed;
     z-index: 9999;
   }
 

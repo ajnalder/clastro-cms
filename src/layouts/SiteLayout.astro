@@ -3,6 +3,7 @@ import BookingModal from "../components/BookingModal.astro";
 import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import SiteScripts from "../components/SiteScripts.astro";
+import { renderDesignTokensCss } from "../lib/design-tokens";
 import { getSiteSettings } from "../lib/repository";
 import {
   buildOrganizationSchema,
@@ -11,6 +12,8 @@ import {
   resolvePageSeo,
 } from "../lib/seo";
 import "../styles/site.css";
+
+const designTokensCss = renderDesignTokensCss();
 
 interface Props {
   description: string;
@@ -81,6 +84,7 @@ const mergedSchema = [...defaultSchema, ...schemaItems];
     <meta name="twitter:description" content={seo.description} />
     <meta name="twitter:image" content={seo.image} />
     <title>{seo.title}</title>
+    <style is:inline set:html={designTokensCss} />
     {stylesheets.map((href) => <link rel="stylesheet" href={href} />)}
     {
       mergedSchema.length > 0 && (

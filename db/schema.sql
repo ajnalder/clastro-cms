@@ -162,6 +162,18 @@ CREATE TABLE IF NOT EXISTS media (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS analytics_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  cloudflare_api_token_encrypted TEXT,
+  cloudflare_account_id TEXT,
+  cloudflare_zone_id TEXT,
+  cloudflare_hostname TEXT,
+  ga4_property_id TEXT,
+  ga4_service_account_json_encrypted TEXT,
+  gsc_site_url TEXT,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS email_settings (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   resend_api_key_encrypted TEXT,

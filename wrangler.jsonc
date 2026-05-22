@@ -4,6 +4,13 @@
   "account_id": "8cd63c32a2f2bd85a8d4088b24acef09",
 	"workers_dev": true,
 	"preview_urls": true,
+	"routes": [
+		{
+			"pattern": "cms.whattheheck.co.nz",
+			"zone_name": "whattheheck.co.nz",
+			"custom_domain": true
+		}
+	],
 	"compatibility_date": "2026-04-08",
 	"compatibility_flags": [
 		"nodejs_compat",

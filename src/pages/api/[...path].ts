@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 
 import { generateAiPostDraft, generateAiPostTitleIdeas } from "../../lib/ai";
 import type { CmsUserFeatureVisibility } from "../../lib/defaults";
+import { fetchGoogleAnalytics } from "../../lib/google-analytics";
 import {
   buildLogoutCookie,
   buildSessionCookie,
@@ -59,6 +60,8 @@ import {
   archiveFormSubmission,
   createFormSubmission,
   deleteContentItem,
+  getAnalyticsSettings,
+  upsertAnalyticsSettings,
   deleteFormSubmissionById,
   deleteMediaRecord,
   getContentItem,
@@ -1219,6 +1222,49 @@ export const GET: APIRoute = async (context) => {
     return json(await listFormSubmissions(context.locals, { includeArchived }));
   }
 
+  if (segments[0] === "integrations" && segments[1] === "analytics") {
+    const auth = await requireAdmin(context);
+    if (auth.response) {
+      return auth.response;
+    }
+    const settings = await getAnalyticsSettings(context.locals);
+    return json({
+      ga4PropertyId: settings.ga4PropertyId,
+      gscSiteUrl: settings.gscSiteUrl,
+      hasGa4ServiceAccount: Boolean(settings.ga4ServiceAccountJson),
+    });
+  }
+
+  if (segments[0] === "analytics" && segments[1] === "ga4") {
+    const auth = await requireAdmin(context);
+    if (auth.response) {
+      return auth.response;
+    }
+    const settings = await getAnalyticsSettings(context.locals);
+    if (!settings.ga4ServiceAccountJson || !settings.ga4PropertyId) {
+      return json({ configured: false });
+    }
+    const url = new URL(context.request.url);
+    const periodParam = url.searchParams.get("period") || "7d";
+    const days = periodParam === "90d" ? 90 : periodParam === "30d" ? 30 : 7;
+    try {
+      const data = await fetchGoogleAnalytics({
+        serviceAccountJson: settings.ga4ServiceAccountJson,
+        propertyId: settings.ga4PropertyId,
+        days,
+      });
+      return json({ configured: true, ...data });
+    } catch (error) {
+      return json(
+        {
+          configured: true,
+          error: error instanceof Error ? error.message : "Failed to load GA4 analytics.",
+        },
+        502,
+      );
+    }
+  }
+
   return notFound();
 };
 
@@ -1973,6 +2019,39 @@ export const PUT: APIRoute = async (context) => {
     });
 
     return json(stored);
+  }
+
+  if (segments[0] === "integrations" && segments[1] === "analytics") {
+    const body = await parseJsonBody<{
+      ga4PropertyId?: string;
+      ga4ServiceAccountJson?: string;
+      gscSiteUrl?: string;
+    }>(context.request);
+
+    if (!body || typeof body !== "object") {
+      return badRequest("Invalid analytics settings payload.");
+    }
+
+    const existing = await getAnalyticsSettings(context.locals);
+    const next = {
+      ga4PropertyId: typeof body.ga4PropertyId === "string"
+        ? body.ga4PropertyId.trim()
+        : existing.ga4PropertyId,
+      ga4ServiceAccountJson: typeof body.ga4ServiceAccountJson === "string"
+        ? body.ga4ServiceAccountJson.trim()
+        : existing.ga4ServiceAccountJson,
+      gscSiteUrl: typeof body.gscSiteUrl === "string"
+        ? body.gscSiteUrl.trim()
+        : existing.gscSiteUrl,
+    };
+
+    await upsertAnalyticsSettings(context.locals, next);
+
+    return json({
+      ga4PropertyId: next.ga4PropertyId,
+      gscSiteUrl: next.gscSiteUrl,
+      hasGa4ServiceAccount: Boolean(next.ga4ServiceAccountJson),
+    });
   }
 
   if (segments[0] === "email" && segments[1] === "settings") {

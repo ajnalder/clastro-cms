@@ -308,6 +308,13 @@ NOT roll your own.
 - **Encrypted secrets** (Resend API key, AI API key, LinkedIn client secret)
   use `encryptStoredSecret` / `decryptStoredSecret` in `repository.ts`.
   Reuse `getAiSettingsEncryptionSecret` — don't introduce another secret.
+- **Navigation, footer, and booking content** are stored on the
+  `site_settings` row and seeded from `DEFAULT_SITE_SETTINGS` in
+  `src/lib/defaults.ts`. When building a new site, set sensible
+  starting values there (nav links, footer columns, booking cards,
+  CTAs). After launch, the client edits them via the admin Settings
+  tab (Navigation / Footer / Booking cards) — no redeploy required.
+  Don't hardcode menu items or footer links in the layout components.
 - **Public form submissions** post to `/api/forms/<type>` (e.g.
   `/api/forms/contact`). Anything captured shows up in the admin's Email tab
   inbox. The form name in the URL becomes the `form_type` column.
@@ -342,7 +349,66 @@ NOT roll your own.
 
 ---
 
-## 9. Public-site CSS quick-reference
+## 9. Design tokens — set these FIRST
+
+`src/lib/design-tokens.ts` is the single source of truth for the public
+site's fonts, type scale, and brand colours. It is the **first file you
+edit on a new project**, before building any pages.
+
+```ts
+export const DESIGN_TOKENS: DesignTokens = {
+  fonts: {
+    body: '"Inter", ui-sans-serif, system-ui, sans-serif',
+    heading: '"Outfit", "Inter", system-ui, sans-serif',
+  },
+  type: {
+    base: 1,            // body size in rem
+    scale: 1.25,        // major third — h6=base, h5=base*scale, ... h1=base*scale^5
+    lineHeading: 1.15,
+    lineBody: 1.65,
+    trackingHeading: "-0.02em",
+    trackingBody: "0",
+    weightBody: 400,
+    weightHeading: 700,
+  },
+  color: {
+    primary: "#0b1733",            primaryForeground: "#ecfeff",
+    accent: "#06b6d4",             accentForeground: "#06121f",
+    ink: "#0b1733",                muted: "#5a6678",
+    surface: "#ffffff",            background: "#f6f8fc",
+    line: "#e2e8f0",
+  },
+};
+```
+
+`renderDesignTokensCss()` emits these as CSS custom properties (`--font-body`,
+`--font-heading`, `--type-h1` … `--type-h6`, `--color-primary`, etc.) on
+`:root`. `SiteLayout.astro` inlines that block in every public page's
+`<head>` before any other stylesheet — so the variables are available
+everywhere, including content the live editor inserts.
+
+`src/styles/base.css` applies the tokens to bare `<html>`, `<body>`,
+`<h1>`–`<h6>`. `src/styles/components.css` adds editor-content spacing
+rules under `[data-page-content-root]` so headings inserted by the editor
+sit with proper margins.
+
+### New-project workflow (do this in order)
+
+1. Read the brief.
+2. Edit `DESIGN_TOKENS` to match the brand (or generate a first cut and
+   let the user iterate).
+3. `npm run dev`, open any public page, eyeball the type scale and palette.
+4. **Then** start building pages and content types.
+
+### What's intentionally NOT in the tokens (yet)
+
+- Spacing, radius, shadows still live in `src/styles/tokens.css`. Migrating
+  them is a v2 task — only do it if a project actually needs to vary them.
+- The **admin theme** is intentionally separate. The admin shell stays
+  deep-navy + cyan across every client project for consistency. Don't
+  drive admin colours from `DESIGN_TOKENS`.
+
+## 10. Public-site CSS quick-reference
 
 The public site uses a token system (not Tailwind). Primitives:
 
@@ -360,7 +426,7 @@ CSS tokens live in `src/styles/tokens.css`. Don't introduce new ones casually.
 
 ---
 
-## 10. Build/typecheck contract
+## 11. Build/typecheck contract
 
 Before committing:
 
@@ -375,7 +441,7 @@ the legacy admin code). Errors are not.
 
 ---
 
-## 11. When you're done
+## 12. When you're done
 
 Update:
 

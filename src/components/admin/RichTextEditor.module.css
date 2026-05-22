@@ -150,7 +150,26 @@
 
 .surface :global(.ProseMirror ul),
 .surface :global(.ProseMirror ol) {
-  padding-left: 1.2rem;
+  list-style-position: outside;
+  padding-left: 1.4rem;
+}
+
+.surface :global(.ProseMirror ul) {
+  list-style-type: disc;
+}
+
+.surface :global(.ProseMirror ol) {
+  list-style-type: decimal;
+}
+
+.surface :global(.ProseMirror li) {
+  /* Tiptap wraps each <li> contents in a <p> by default; tighten it so
+     bullets sit on the same line as the text. */
+  margin: 0;
+}
+
+.surface :global(.ProseMirror li > p) {
+  margin: 0;
 }
 
 .surface :global(.ProseMirror li + li) {

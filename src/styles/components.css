@@ -325,9 +325,52 @@
   margin-top: 2rem;
 }
 
+/* Spacing for editor-managed content blocks so headings/paragraphs/lists
+   sit comfortably apart. Type sizes come from the design tokens (base.css). */
+[data-page-content-root] h1,
+[data-page-content-root] h2,
+[data-page-content-root] h3,
+[data-page-content-root] h4,
+[data-page-content-root] h5,
+[data-page-content-root] h6 {
+  margin-top: 1.4em;
+}
+
+[data-page-content-root] :is(h1,h2,h3,h4,h5,h6):first-child {
+  margin-top: 0;
+}
+
+[data-page-content-root] p + p,
+[data-page-content-root] p + ul,
+[data-page-content-root] p + ol,
+[data-page-content-root] ul + p,
+[data-page-content-root] ol + p,
+[data-page-content-root] :is(h1,h2,h3,h4,h5,h6) + p,
+[data-page-content-root] :is(h1,h2,h3,h4,h5,h6) + ul,
+[data-page-content-root] :is(h1,h2,h3,h4,h5,h6) + ol {
+  margin-top: 0.85em;
+}
+
 .rich-content ul,
-.rich-content ol {
+.rich-content ol,
+[data-page-content-root] ul,
+[data-page-content-root] ol {
+  list-style-position: outside;
   padding-left: 1.4rem;
+}
+
+.rich-content ul,
+[data-page-content-root] ul {
+  list-style-type: disc;
+}
+
+.rich-content ol,
+[data-page-content-root] ol {
+  list-style-type: decimal;
+}
+
+[data-page-content-root] li + li {
+  margin-top: 0.3rem;
 }
 
 .article-meta,

@@ -5,9 +5,22 @@ export interface ClastroChangelogEntry {
   changes: string[];
 }
 
-export const CLASTRO_VERSION = "0.2.0";
+export const CLASTRO_VERSION = "0.3.0";
 
 export const CLASTRO_CHANGELOG: ClastroChangelogEntry[] = [
+  {
+    version: "0.3.0",
+    date: "2026-05-23",
+    summary: "Analytics swap: Cloudflare out, Google Analytics 4 + Search Console in.",
+    changes: [
+      "Removed the Cloudflare analytics integration — its API token, zone ID, hostname filter, GraphQL helpers, dashboard tiles, and Integrations card are all gone.",
+      "Added a Google service-account auth helper (src/lib/google-service-account.ts) that signs an RS256 JWT via WebCrypto and exchanges it at oauth2.googleapis.com/token. Access tokens are cached in-memory per (service account + scope set) until just before expiry.",
+      "Added a Google Analytics 4 client (src/lib/google-analytics.ts) that fans out to the GA4 Data API runReport endpoint for overview KPIs, daily sessions timeseries, top pages, and top sources.",
+      "New GET /api/analytics/ga4?period=7d|30d|90d returning the same shape the old Cloudflare endpoint did, so the dashboard can swap in cleanly.",
+      "Integrations tab now hosts editable Google Analytics 4 and Google Search Console cards; the service-account JSON is stored encrypted with the same AI_SETTINGS_ENCRYPTION_SECRET-backed envelope as other provider secrets.",
+      "Search Console wiring + the combined dashboard rebuild are scheduled for the next release.",
+    ],
+  },
   {
     version: "0.2.0",
     date: "2026-05-21",

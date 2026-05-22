@@ -98,6 +98,23 @@ function IconMail() {
   )
 }
 
+function IconChart() {
+  return (
+    <svg className={styles.navIcon} fill="none" viewBox="0 0 20 20">
+      <path d="M3 17V4m0 13h14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+      <path d="M6 13.5l3-3.5 3 2.5 4-5.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+function IconPlug() {
+  return (
+    <svg className={styles.navIcon} fill="none" viewBox="0 0 20 20">
+      <path d="M7 4v4m6-4v4M5 8h10v2a5 5 0 0 1-5 5 5 5 0 0 1-5-5V8Zm5 7v3" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
 function IconLinkedIn() {
   return (
     <svg className={styles.navIcon} fill="none" viewBox="0 0 20 20">
@@ -245,6 +262,7 @@ const STATIC_NAV_ICONS: Record<StaticTabKey, ReactNode> = {
   ai: <IconAi />,
   dashboard: <IconDashboard />,
   email: <IconMail />,
+  integrations: <IconPlug />,
   linkedin: <IconLinkedIn />,
   pages: <IconPages />,
   posts: <IconPosts />,
@@ -272,20 +290,85 @@ type User = {
 
 type UserRole = CmsRole
 
+type NavigationLink = { label: string; link: string }
+
+type FooterColumn = { heading: string; links: NavigationLink[] }
+
+type SiteFooter = {
+  columns: FooterColumn[]
+  ctaLink: string
+  ctaText: string
+  emailText: string
+  phoneText: string
+  tagline: string
+}
+
+type SiteNavigation = {
+  ctaButtonLink: string
+  ctaButtonText: string
+  navLinks: NavigationLink[]
+  phoneLink: string
+  phoneText: string
+}
+
+type BookingCard = {
+  description: string
+  duration: string
+  href: string
+  price: string
+  title: string
+}
+
+type SiteBooking = {
+  consultation: BookingCard
+  note: string
+  session: BookingCard
+}
+
 type Settings = {
   appleTouchIconUrl: string
-  booking: unknown
+  booking: SiteBooking
   contactEmail: string
   contactPhone: string
   defaultOgImage: string
   faviconUrl: string
-  footer: unknown
-  navigation: unknown
+  footer: SiteFooter
+  navigation: SiteNavigation
   socialShareDescription: string
   socialShareTitle: string
   siteName: string
   siteUrl: string
   themeColor: string
+}
+
+const BLANK_NAV_LINK: NavigationLink = { label: '', link: '' }
+const BLANK_FOOTER_COLUMN: FooterColumn = { heading: '', links: [] }
+const BLANK_BOOKING_CARD: BookingCard = {
+  description: '',
+  duration: '',
+  href: '',
+  price: '',
+  title: '',
+}
+const BLANK_NAVIGATION: SiteNavigation = {
+  ctaButtonLink: '',
+  ctaButtonText: '',
+  navLinks: [],
+  phoneLink: '',
+  phoneText: '',
+}
+const BLANK_FOOTER: SiteFooter = {
+  columns: [],
+  ctaLink: '',
+  ctaText: '',
+  emailText: '',
+  phoneText: '',
+  tagline: '',
+}
+const BLANK_BOOKING: SiteBooking = {
+  consultation: { ...BLANK_BOOKING_CARD },
+  note: '',
+  session: { ...BLANK_BOOKING_CARD },
 }
 
 type AiSettings = {
@@ -883,7 +966,7 @@ type AiPostBuilder = {
   topic: string
 }
 
-type StaticTabKey = 'dashboard' | 'settings' | 'ai' | 'linkedin' | 'email' | 'pages' | 'posts' | 'products' | 'media' | 'users'
+type StaticTabKey = 'dashboard' | 'settings' | 'ai' | 'linkedin' | 'email' | 'integrations' | 'pages' | 'posts' | 'products' | 'media' | 'users'
 type ContentItemTabKey = `content-item:${string}`
 type TabKey = StaticTabKey | ContentItemTabKey
 
@@ -1006,6 +1089,11 @@ const NAV_SECTIONS: Array<{
     label: 'Config',
     items: [
       {
+        key: 'integrations',
+        label: 'Integrations',
+        description: 'Google Analytics 4 and Search Console',
+      },
+      {
         key: 'email',
         label: 'Email',
         description: 'Resend API key and form submissions',
@@ -1041,6 +1129,10 @@ const STATIC_TAB_META: Record<StaticTabKey, { description: string; title: string
   email: {
     title: 'Email',
     description: 'Configure Resend and view form submissions captured from the public site.',
+  },
+  integrations: {
+    title: 'Integrations',
+    description: 'Connect Google Analytics 4 and Search Console to power the dashboard.',
   },
   linkedin: {
     title: 'LinkedIn',
@@ -1238,12 +1330,29 @@ export function AdminApp({ user }: { user: User }) {
   })
 
   const [settings, setSettings] = useState<Settings | null>(null)
-  const [settingsDraft, setSettingsDraft] = useState({
+  const [settingsDraft, setSettingsDraft] = useState<{
+    appleTouchIconUrl: string
+    booking: SiteBooking
+    contactEmail: string
+    contactPhone: string
+    defaultOgImage: string
+    faviconUrl: string
+    footer: SiteFooter
+    navigation: SiteNavigation
+    socialShareDescription: string
+    socialShareTitle: string
+    siteName: string
+    siteUrl: string
+    themeColor: string
+  }>({
     appleTouchIconUrl: '',
+    booking: BLANK_BOOKING,
     contactEmail: '',
     contactPhone: '',
     defaultOgImage: '',
     faviconUrl: '',
+    footer: BLANK_FOOTER,
+    navigation: BLANK_NAVIGATION,
     socialShareDescription: '',
     socialShareTitle: '',
     siteName: '',
@@ -1389,6 +1498,22 @@ export function AdminApp({ user }: { user: User }) {
   const [formSubmissions, setFormSubmissions] = useState<FormSubmissionRecord[]>([])
   const [activeSubmission, setActiveSubmission] = useState<FormSubmissionRecord | null>(null)
   const [submissionDeleteConfirm, setSubmissionDeleteConfirm] = useState<FormSubmissionRecord | null>(null)
+
+  type AnalyticsSettingsState = {
+    ga4PropertyId: string
+    ga4ServiceAccountJsonInput: string
+    gscSiteUrl: string
+    hasGa4ServiceAccount: boolean
+  }
+  const [analyticsSettings, setAnalyticsSettings] = useState<AnalyticsSettingsState>({
+    ga4PropertyId: '',
+    ga4ServiceAccountJsonInput: '',
+    gscSiteUrl: '',
+    hasGa4ServiceAccount: false,
+  })
+  const [savingAnalyticsSettings, setSavingAnalyticsSettings] = useState(false)
+
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<'7d' | '30d' | '90d'>('7d')
   const [uploadingSettingsAsset, setUploadingSettingsAsset] = useState<SettingsAssetField | ''>('')
   const [sharingToLinkedIn, setSharingToLinkedIn] = useState(false)
   const [unsavedProductDialog, setUnsavedProductDialog] = useState<{ actionLabel: string } | null>(null)
@@ -1403,6 +1528,7 @@ export function AdminApp({ user }: { user: User }) {
     'dashboard',
     'settings',
     'email',
+    'integrations',
     'pages',
     'products',
     'media',
@@ -1484,6 +1610,19 @@ export function AdminApp({ user }: { user: User }) {
         themeColor: nextSettings.themeColor || '',
         contactEmail: nextSettings.contactEmail || '',
         contactPhone: nextSettings.contactPhone || '',
+        navigation: nextSettings.navigation
+          ? { ...BLANK_NAVIGATION, ...nextSettings.navigation, navLinks: [...(nextSettings.navigation.navLinks || [])] }
+          : { ...BLANK_NAVIGATION },
+        footer: nextSettings.footer
+          ? { ...BLANK_FOOTER, ...nextSettings.footer, columns: (nextSettings.footer.columns || []).map((col) => ({ ...col, links: [...(col.links || [])] })) }
+          : { ...BLANK_FOOTER },
+        booking: nextSettings.booking
+          ? {
+              consultation: { ...BLANK_BOOKING_CARD, ...(nextSettings.booking.consultation || {}) },
+              session: { ...BLANK_BOOKING_CARD, ...(nextSettings.booking.session || {}) },
+              note: nextSettings.booking.note || '',
+            }
+          : { ...BLANK_BOOKING },
       })
     }
 
@@ -1677,6 +1816,39 @@ export function AdminApp({ user }: { user: User }) {
     }
   }, [activeProductSlug, products])
 
+  // Load Integrations + analytics whenever the dashboard or integrations tab is active.
+  useEffect(() => {
+    if (tab !== 'integrations' && tab !== 'dashboard') {
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const response = await fetch('/api/integrations/analytics')
+        if (!response.ok) {
+          throw new Error(`Failed to load analytics settings (${response.status})`)
+        }
+        const data = await response.json() as {
+          ga4PropertyId: string
+          gscSiteUrl: string
+          hasGa4ServiceAccount: boolean
+        }
+        if (cancelled) return
+        setAnalyticsSettings({
+          ga4PropertyId: data.ga4PropertyId || '',
+          ga4ServiceAccountJsonInput: '',
+          gscSiteUrl: data.gscSiteUrl || '',
+          hasGa4ServiceAccount: Boolean(data.hasGa4ServiceAccount),
+        })
+      } catch (error) {
+        if (!cancelled) {
+          setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to load integrations.' })
+        }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [tab])
+
   // Load Email tab data (settings + submissions) when activated
   useEffect(() => {
     if (tab !== 'email') {
@@ -1806,9 +1978,9 @@ export function AdminApp({ user }: { user: User }) {
         themeColor: settingsDraft.themeColor,
         contactEmail: settingsDraft.contactEmail,
         contactPhone: settingsDraft.contactPhone,
-        navigation: settings.navigation,
-        footer: settings.footer,
-        booking: settings.booking,
+        navigation: settingsDraft.navigation,
+        footer: settingsDraft.footer,
+        booking: settingsDraft.booking,
       }
 
       const response = await fetch('/api/settings', {
@@ -2676,6 +2848,43 @@ export function AdminApp({ user }: { user: User }) {
     }
   }
 
+  async function saveAnalyticsSettings() {
+    setSavingAnalyticsSettings(true)
+    try {
+      const body: Record<string, unknown> = {
+        ga4PropertyId: analyticsSettings.ga4PropertyId,
+        gscSiteUrl: analyticsSettings.gscSiteUrl,
+      }
+      if (analyticsSettings.ga4ServiceAccountJsonInput) {
+        body.ga4ServiceAccountJson = analyticsSettings.ga4ServiceAccountJsonInput
+      }
+      const response = await fetch('/api/integrations/analytics', {
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT',
+      })
+      if (!response.ok) {
+        throw new Error(`Failed to save (${response.status})`)
+      }
+      const saved = await response.json() as {
+        ga4PropertyId: string
+        gscSiteUrl: string
+        hasGa4ServiceAccount: boolean
+      }
+      setAnalyticsSettings({
+        ga4PropertyId: saved.ga4PropertyId || '',
+        ga4ServiceAccountJsonInput: '',
+        gscSiteUrl: saved.gscSiteUrl || '',
+        hasGa4ServiceAccount: Boolean(saved.hasGa4ServiceAccount),
+      })
+      setStatus({ kind: 'info', text: 'Analytics integrations saved.' })
+    } catch (error) {
+      setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to save analytics settings.' })
+    } finally {
+      setSavingAnalyticsSettings(false)
+    }
+  }
+
   async function saveEmailSettings() {
     setSavingEmailSettings(true)
     try {
@@ -3499,6 +3708,11 @@ export function AdminApp({ user }: { user: User }) {
                   {savingEmailSettings ? 'Saving…' : 'Save Email Settings'}
                 </Button>
               )}
+              {tab === 'integrations' && (
+                <Button disabled={savingAnalyticsSettings} onClick={() => { void saveAnalyticsSettings() }} size="sm" type="button">
+                  {savingAnalyticsSettings ? 'Saving…' : 'Save Integrations'}
+                </Button>
+              )}
               {tab === 'posts' && canViewBlog && (
                 <>
                   {canUseAiBlogBuilder && (
@@ -3651,30 +3865,91 @@ export function AdminApp({ user }: { user: User }) {
 
             const [latestRelease, ...priorReleases] = CLASTRO_CHANGELOG
 
+            const analyticsConfigured = analyticsSettings.hasGa4ServiceAccount
+              && Boolean(analyticsSettings.ga4PropertyId)
+
             return (
               <div className="space-y-6">
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                  {stats.map((item) => (
-                    <Card className="transition-colors hover:border-cyan-400/30" key={item.label}>
-                      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
-                        <div className="space-y-1">
-                          <CardDescription className="text-[11px] font-semibold uppercase tracking-[0.12em]">
-                            {item.label}
-                          </CardDescription>
-                          <div className="text-3xl font-bold leading-none tracking-tight text-foreground">
-                            {item.value}
+                {/* ── Analytics block ─────────────────────────────────── */}
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                      <h2 className="text-base font-semibold tracking-tight text-foreground">Site Analytics</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {analyticsConfigured
+                          ? 'Google Analytics 4 & Search Console — coming online.'
+                          : 'Connect Google Analytics 4 and Search Console to surface live traffic data here.'}
+                      </p>
+                    </div>
+                    <div className="inline-flex items-center rounded-md border border-border bg-muted p-0.5 text-xs">
+                      {(['7d', '30d', '90d'] as const).map((option) => (
+                        <button
+                          className={cn(
+                            'rounded px-3 py-1 font-medium transition',
+                            analyticsPeriod === option
+                              ? 'bg-card text-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground',
+                          )}
+                          key={option}
+                          onClick={() => setAnalyticsPeriod(option)}
+                          type="button"
+                        >
+                          {option === '7d' ? '7 days' : option === '30d' ? '30 days' : '90 days'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {!analyticsConfigured ? (
+                    <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                        <IconChart />
+                      </div>
+                      <h3 className="mt-3 text-sm font-semibold text-foreground">No analytics connected yet</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Add a GA4 property and Search Console site under <strong>Integrations</strong> to start showing traffic.
+                      </p>
+                      <Button
+                        className="mt-4"
+                        onClick={() => { void handleTabChange('integrations') }}
+                        size="sm"
+                        type="button"
+                      >
+                        Open Integrations
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+                      Live KPIs from Google Analytics 4 and Search Console will appear here in the next release.
+                    </div>
+                  )}
+                </div>
+
+                {/* ── CMS state strip ─────────────────────────────────── */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle>CMS state</CardTitle>
+                    <CardDescription>What&apos;s in the database right now.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                      {stats.map((item) => (
+                        <div className="flex items-center gap-3 rounded-md border border-border bg-background/40 p-3" key={item.label}>
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
+                            {item.icon}
+                          </span>
+                          <div className="min-w-0 space-y-0.5">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                              {item.label}
+                            </p>
+                            <p className="text-lg font-semibold leading-none text-foreground">{item.value}</p>
+                            <p className="truncate text-xs text-muted-foreground">{item.detail}</p>
                           </div>
                         </div>
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-                          {item.icon}
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-xs text-muted-foreground">{item.detail}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
 
                 <div className="grid gap-8 lg:grid-cols-3">
                   <section className="space-y-4 lg:col-span-2">
@@ -4078,6 +4353,374 @@ export function AdminApp({ user }: { user: User }) {
                     <small className={styles.fieldHint}>Fallback description for Open Graph and social cards.</small>
                   </label>
                 </div>
+              </section>
+
+              {/* ── Navigation ───────────────────────────────────────── */}
+              <section className="space-y-4 rounded-lg border border-border bg-card p-5 shadow-sm">
+                <div>
+                  <h2 className="text-base font-semibold tracking-tight text-foreground">Navigation</h2>
+                  <p className="text-sm text-muted-foreground">Top-of-site header menu, CTA button, and phone link.</p>
+                </div>
+
+                <div className="space-y-3">
+                  <span className="block text-xs font-medium text-muted-foreground">Menu links</span>
+                  {settingsDraft.navigation.navLinks.map((link, index) => (
+                    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]" key={index}>
+                      <input
+                        className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onChange={(event) => setSettingsDraft((current) => ({
+                          ...current,
+                          navigation: {
+                            ...current.navigation,
+                            navLinks: current.navigation.navLinks.map((entry, i) => i === index ? { ...entry, label: event.target.value } : entry),
+                          },
+                        }))}
+                        placeholder="Label (e.g. About)"
+                        value={link.label}
+                      />
+                      <input
+                        className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onChange={(event) => setSettingsDraft((current) => ({
+                          ...current,
+                          navigation: {
+                            ...current.navigation,
+                            navLinks: current.navigation.navLinks.map((entry, i) => i === index ? { ...entry, link: event.target.value } : entry),
+                          },
+                        }))}
+                        placeholder="/about"
+                        value={link.link}
+                      />
+                      <Button
+                        onClick={() => setSettingsDraft((current) => ({
+                          ...current,
+                          navigation: {
+                            ...current.navigation,
+                            navLinks: current.navigation.navLinks.filter((_, i) => i !== index),
+                          },
+                        }))}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    onClick={() => setSettingsDraft((current) => ({
+                      ...current,
+                      navigation: {
+                        ...current.navigation,
+                        navLinks: [...current.navigation.navLinks, { ...BLANK_NAV_LINK }],
+                      },
+                    }))}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    + Add menu link
+                  </Button>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">CTA button label</span>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) => setSettingsDraft((current) => ({ ...current, navigation: { ...current.navigation, ctaButtonText: event.target.value } }))}
+                      placeholder="Book a call"
+                      value={settingsDraft.navigation.ctaButtonText}
+                    />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">CTA button link</span>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) => setSettingsDraft((current) => ({ ...current, navigation: { ...current.navigation, ctaButtonLink: event.target.value } }))}
+                      placeholder="/contact"
+                      value={settingsDraft.navigation.ctaButtonLink}
+                    />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">Phone display text</span>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) => setSettingsDraft((current) => ({ ...current, navigation: { ...current.navigation, phoneText: event.target.value } }))}
+                      placeholder="+64 21 000 0000"
+                      value={settingsDraft.navigation.phoneText}
+                    />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">Phone link (tel:)</span>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) => setSettingsDraft((current) => ({ ...current, navigation: { ...current.navigation, phoneLink: event.target.value } }))}
+                      placeholder="tel:+64210000000"
+                      value={settingsDraft.navigation.phoneLink}
+                    />
+                  </label>
+                </div>
+              </section>
+
+              {/* ── Footer ───────────────────────────────────────────── */}
+              <section className="space-y-5 rounded-lg border border-border bg-card p-5 shadow-sm">
+                <div>
+                  <h2 className="text-base font-semibold tracking-tight text-foreground">Footer</h2>
+                  <p className="text-sm text-muted-foreground">Tagline, CTA, contact lines, and the column-of-links groups along the bottom of every page.</p>
+                </div>
+
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">Tagline</span>
+                  <textarea
+                    className="flex min-h-20 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onChange={(event) => setSettingsDraft((current) => ({ ...current, footer: { ...current.footer, tagline: event.target.value } }))}
+                    placeholder="A short sentence about the site."
+                    value={settingsDraft.footer.tagline}
+                  />
+                </label>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">CTA text</span>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) => setSettingsDraft((current) => ({ ...current, footer: { ...current.footer, ctaText: event.target.value } }))}
+                      placeholder="Get in touch"
+                      value={settingsDraft.footer.ctaText}
+                    />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">CTA link</span>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) => setSettingsDraft((current) => ({ ...current, footer: { ...current.footer, ctaLink: event.target.value } }))}
+                      placeholder="/contact"
+                      value={settingsDraft.footer.ctaLink}
+                    />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">Email line</span>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) => setSettingsDraft((current) => ({ ...current, footer: { ...current.footer, emailText: event.target.value } }))}
+                      placeholder="hello@example.com"
+                      value={settingsDraft.footer.emailText}
+                    />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">Phone line</span>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) => setSettingsDraft((current) => ({ ...current, footer: { ...current.footer, phoneText: event.target.value } }))}
+                      placeholder="+64 21 000 0000"
+                      value={settingsDraft.footer.phoneText}
+                    />
+                  </label>
+                </div>
+
+                <div className="space-y-4">
+                  <span className="block text-xs font-medium text-muted-foreground">Link columns</span>
+                  {settingsDraft.footer.columns.map((column, colIndex) => (
+                    <div className="space-y-3 rounded-md border border-border bg-background/40 p-3" key={colIndex}>
+                      <div className="flex gap-2">
+                        <input
+                          className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm font-semibold text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onChange={(event) => setSettingsDraft((current) => ({
+                            ...current,
+                            footer: {
+                              ...current.footer,
+                              columns: current.footer.columns.map((c, i) => i === colIndex ? { ...c, heading: event.target.value } : c),
+                            },
+                          }))}
+                          placeholder="Column heading"
+                          value={column.heading}
+                        />
+                        <Button
+                          onClick={() => setSettingsDraft((current) => ({
+                            ...current,
+                            footer: {
+                              ...current.footer,
+                              columns: current.footer.columns.filter((_, i) => i !== colIndex),
+                            },
+                          }))}
+                          size="sm"
+                          type="button"
+                          variant="destructive"
+                        >
+                          Remove column
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {column.links.map((link, linkIndex) => (
+                          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]" key={linkIndex}>
+                            <input
+                              className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1.5 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              onChange={(event) => setSettingsDraft((current) => ({
+                                ...current,
+                                footer: {
+                                  ...current.footer,
+                                  columns: current.footer.columns.map((c, i) => i === colIndex
+                                    ? { ...c, links: c.links.map((l, j) => j === linkIndex ? { ...l, label: event.target.value } : l) }
+                                    : c),
+                                },
+                              }))}
+                              placeholder="Label"
+                              value={link.label}
+                            />
+                            <input
+                              className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1.5 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              onChange={(event) => setSettingsDraft((current) => ({
+                                ...current,
+                                footer: {
+                                  ...current.footer,
+                                  columns: current.footer.columns.map((c, i) => i === colIndex
+                                    ? { ...c, links: c.links.map((l, j) => j === linkIndex ? { ...l, link: event.target.value } : l) }
+                                    : c),
+                                },
+                              }))}
+                              placeholder="/about"
+                              value={link.link}
+                            />
+                            <Button
+                              onClick={() => setSettingsDraft((current) => ({
+                                ...current,
+                                footer: {
+                                  ...current.footer,
+                                  columns: current.footer.columns.map((c, i) => i === colIndex
+                                    ? { ...c, links: c.links.filter((_, j) => j !== linkIndex) }
+                                    : c),
+                                },
+                              }))}
+                              size="sm"
+                              type="button"
+                              variant="outline"
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                        <Button
+                          onClick={() => setSettingsDraft((current) => ({
+                            ...current,
+                            footer: {
+                              ...current.footer,
+                              columns: current.footer.columns.map((c, i) => i === colIndex
+                                ? { ...c, links: [...c.links, { ...BLANK_NAV_LINK }] }
+                                : c),
+                            },
+                          }))}
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          + Add link
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    onClick={() => setSettingsDraft((current) => ({
+                      ...current,
+                      footer: {
+                        ...current.footer,
+                        columns: [...current.footer.columns, { ...BLANK_FOOTER_COLUMN, links: [] }],
+                      },
+                    }))}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    + Add column
+                  </Button>
+                </div>
+              </section>
+
+              {/* ── Booking modal ────────────────────────────────────── */}
+              <section className="space-y-5 rounded-lg border border-border bg-card p-5 shadow-sm">
+                <div>
+                  <h2 className="text-base font-semibold tracking-tight text-foreground">Booking modal</h2>
+                  <p className="text-sm text-muted-foreground">The two cards shown in the booking modal, plus the footer note.</p>
+                </div>
+
+                {(['consultation', 'session'] as const).map((cardKey) => (
+                  <div className="space-y-3 rounded-md border border-border bg-background/40 p-3" key={cardKey}>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                      {cardKey === 'consultation' ? 'First card' : 'Second card'}
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="block space-y-1.5 sm:col-span-2">
+                        <span className="text-xs font-medium text-muted-foreground">Title</span>
+                        <input
+                          className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onChange={(event) => setSettingsDraft((current) => ({
+                            ...current,
+                            booking: { ...current.booking, [cardKey]: { ...current.booking[cardKey], title: event.target.value } },
+                          }))}
+                          placeholder="Discovery call"
+                          value={settingsDraft.booking[cardKey].title}
+                        />
+                      </label>
+                      <label className="block space-y-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">Duration</span>
+                        <input
+                          className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onChange={(event) => setSettingsDraft((current) => ({
+                            ...current,
+                            booking: { ...current.booking, [cardKey]: { ...current.booking[cardKey], duration: event.target.value } },
+                          }))}
+                          placeholder="15 minutes"
+                          value={settingsDraft.booking[cardKey].duration}
+                        />
+                      </label>
+                      <label className="block space-y-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">Price / label</span>
+                        <input
+                          className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onChange={(event) => setSettingsDraft((current) => ({
+                            ...current,
+                            booking: { ...current.booking, [cardKey]: { ...current.booking[cardKey], price: event.target.value } },
+                          }))}
+                          placeholder="Free"
+                          value={settingsDraft.booking[cardKey].price}
+                        />
+                      </label>
+                      <label className="block space-y-1.5 sm:col-span-2">
+                        <span className="text-xs font-medium text-muted-foreground">Description</span>
+                        <textarea
+                          className="flex min-h-16 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onChange={(event) => setSettingsDraft((current) => ({
+                            ...current,
+                            booking: { ...current.booking, [cardKey]: { ...current.booking[cardKey], description: event.target.value } },
+                          }))}
+                          placeholder="Short description"
+                          value={settingsDraft.booking[cardKey].description}
+                        />
+                      </label>
+                      <label className="block space-y-1.5 sm:col-span-2">
+                        <span className="text-xs font-medium text-muted-foreground">Link (where the card sends people)</span>
+                        <input
+                          className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onChange={(event) => setSettingsDraft((current) => ({
+                            ...current,
+                            booking: { ...current.booking, [cardKey]: { ...current.booking[cardKey], href: event.target.value } },
+                          }))}
+                          placeholder="/contact or https://cal.com/you"
+                          value={settingsDraft.booking[cardKey].href}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ))}
+
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">Note (small text shown under the cards)</span>
+                  <textarea
+                    className="flex min-h-16 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onChange={(event) => setSettingsDraft((current) => ({ ...current, booking: { ...current.booking, note: event.target.value } }))}
+                    placeholder="Leave blank to hide."
+                    value={settingsDraft.booking.note}
+                  />
+                </label>
               </section>
             </section>
           )}
@@ -5837,6 +6480,87 @@ export function AdminApp({ user }: { user: User }) {
                 </div>
               </section>
             </section>
+          )}
+
+          {tab === 'integrations' && (
+            <div className="space-y-6">
+              <section className="space-y-5 rounded-lg border border-border bg-card p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-semibold tracking-tight text-foreground">Google Analytics 4</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Sessions, active users, engagement, top pages, and top sources for the public site. Used to power the Dashboard.
+                    </p>
+                  </div>
+                  <span className={cn(
+                    'inline-flex h-6 items-center rounded-full px-2.5 text-[10px] font-semibold uppercase tracking-[0.08em]',
+                    analyticsSettings.hasGa4ServiceAccount && analyticsSettings.ga4PropertyId
+                      ? 'bg-cyan-400/15 text-cyan-200'
+                      : 'bg-muted text-muted-foreground',
+                  )}>
+                    {analyticsSettings.hasGa4ServiceAccount && analyticsSettings.ga4PropertyId ? 'Connected' : 'Not configured'}
+                  </span>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">GA4 Property ID</span>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) => setAnalyticsSettings((current) => ({ ...current, ga4PropertyId: event.target.value }))}
+                      placeholder="e.g. 312345678"
+                      value={analyticsSettings.ga4PropertyId}
+                    />
+                    <small className="text-xs text-muted-foreground">In GA4 → Admin → Property Settings (numeric, not the &apos;G-&apos; measurement ID).</small>
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">Service account JSON</span>
+                    <textarea
+                      autoComplete="off"
+                      className="flex min-h-[120px] w-full rounded-md border border-input bg-card px-3 py-2 font-mono text-xs text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) => setAnalyticsSettings((current) => ({ ...current, ga4ServiceAccountJsonInput: event.target.value }))}
+                      placeholder={analyticsSettings.hasGa4ServiceAccount ? '••••••••  (stored)' : 'Paste the entire service-account JSON key here'}
+                      value={analyticsSettings.ga4ServiceAccountJsonInput}
+                    />
+                    <small className="text-xs text-muted-foreground">
+                      Create at console.cloud.google.com → IAM &amp; Admin → Service Accounts → Keys. Add the service account email as a <em>Viewer</em> on the GA4 property and as a <em>Restricted</em> user in Search Console. JSON is stored encrypted.
+                    </small>
+                  </label>
+                </div>
+              </section>
+
+              <section className="space-y-5 rounded-lg border border-border bg-card p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-semibold tracking-tight text-foreground">Google Search Console</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Top queries, clicks, impressions, CTR, and average position from organic search. Re-uses the GA4 service account above.
+                    </p>
+                  </div>
+                  <span className={cn(
+                    'inline-flex h-6 items-center rounded-full px-2.5 text-[10px] font-semibold uppercase tracking-[0.08em]',
+                    analyticsSettings.gscSiteUrl
+                      ? 'bg-cyan-400/15 text-cyan-200'
+                      : 'bg-muted text-muted-foreground',
+                  )}>
+                    {analyticsSettings.gscSiteUrl ? 'Configured' : 'Not configured'}
+                  </span>
+                </div>
+
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">Search Console site URL</span>
+                  <input
+                    className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onChange={(event) => setAnalyticsSettings((current) => ({ ...current, gscSiteUrl: event.target.value }))}
+                    placeholder="sc-domain:example.com   or   https://www.example.com/"
+                    value={analyticsSettings.gscSiteUrl}
+                  />
+                  <small className="text-xs text-muted-foreground">
+                    Match the property exactly as it appears in Search Console. Domain properties use the <code className="font-mono">sc-domain:</code> prefix; URL-prefix properties use the full URL.
+                  </small>
+                </label>
+              </section>
+            </div>
           )}
 
           {tab === 'email' && (

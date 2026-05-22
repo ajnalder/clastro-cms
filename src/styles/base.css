@@ -5,7 +5,11 @@
 html {
   background: var(--color-bg);
   color: var(--color-ink);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-body, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-size: var(--type-base, 1rem);
+  font-weight: var(--font-weight-body, 400);
+  letter-spacing: var(--tracking-body, 0);
+  line-height: var(--line-body, 1.65);
   scroll-behavior: smooth;
 }
 
@@ -13,6 +17,27 @@ body {
   margin: 0;
   min-height: 100vh;
 }
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--color-ink);
+  font-family: var(--font-heading, inherit);
+  font-weight: var(--font-weight-heading, 700);
+  letter-spacing: var(--tracking-heading, 0);
+  line-height: var(--line-heading, 1.15);
+  margin: 0;
+}
+
+h1 { font-size: var(--type-h1); }
+h2 { font-size: var(--type-h2); }
+h3 { font-size: var(--type-h3); }
+h4 { font-size: var(--type-h4); }
+h5 { font-size: var(--type-h5); }
+h6 { font-size: var(--type-h6); }
 
 a {
   color: inherit;
@@ -30,9 +55,6 @@ textarea {
   font: inherit;
 }
 
-h1,
-h2,
-h3,
 p {
   margin: 0;
 }

@@ -2251,6 +2251,76 @@ export async function deleteContentItem(
     .run();
 }
 
+// ── Analytics settings + provider clients ─────────────────────────────
+
+export interface AnalyticsSettings {
+  ga4PropertyId: string;
+  ga4ServiceAccountJson: string;
+  gscSiteUrl: string;
+}
+
+const DEFAULT_ANALYTICS_SETTINGS: AnalyticsSettings = {
+  ga4PropertyId: "",
+  ga4ServiceAccountJson: "",
+  gscSiteUrl: "",
+};
+
+export async function getAnalyticsSettings(locals?: App.Locals): Promise<AnalyticsSettings> {
+  const db = getDb(locals);
+  if (!db) {
+    return { ...DEFAULT_ANALYTICS_SETTINGS };
+  }
+  try {
+    const row = await db.prepare("SELECT * FROM analytics_settings WHERE id = 1 LIMIT 1").first();
+    if (!row) {
+      return { ...DEFAULT_ANALYTICS_SETTINGS };
+    }
+    const secret = getAiSettingsEncryptionSecret(locals);
+    const gaJson = row.ga4_service_account_json_encrypted
+      ? await decryptStoredSecret(String(row.ga4_service_account_json_encrypted), secret)
+      : "";
+    return {
+      ga4PropertyId: String(row.ga4_property_id || ""),
+      ga4ServiceAccountJson: gaJson,
+      gscSiteUrl: String(row.gsc_site_url || ""),
+    };
+  } catch (error) {
+    console.warn("getAnalyticsSettings fallback:", error);
+    return { ...DEFAULT_ANALYTICS_SETTINGS };
+  }
+}
+
+export async function upsertAnalyticsSettings(
+  locals: App.Locals | undefined,
+  settings: AnalyticsSettings,
+) {
+  const db = getDb(locals);
+  if (!db) {
+    throw new Error("D1 binding is not configured.");
+  }
+  const secret = getAiSettingsEncryptionSecret(locals);
+  const gaEnc = settings.ga4ServiceAccountJson
+    ? await encryptStoredSecret(settings.ga4ServiceAccountJson, secret)
+    : "";
+  await db
+    .prepare(
+      `INSERT INTO analytics_settings (id, ga4_property_id, ga4_service_account_json_encrypted, gsc_site_url, updated_at)
+       VALUES (1, ?, ?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(id) DO UPDATE SET
+         ga4_property_id = excluded.ga4_property_id,
+         ga4_service_account_json_encrypted = excluded.ga4_service_account_json_encrypted,
+         gsc_site_url = excluded.gsc_site_url,
+         updated_at = CURRENT_TIMESTAMP`,
+    )
+    .bind(
+      settings.ga4PropertyId || null,
+      gaEnc || null,
+      settings.gscSiteUrl || null,
+    )
+    .run();
+}
+
+
 // ── Email settings + form submissions ─────────────────────────────────
 
 export interface EmailSettings {

@@ -5,9 +5,18 @@ export interface ClastroChangelogEntry {
   changes: string[];
 }
 
-export const CLASTRO_VERSION = "0.5.0";
+export const CLASTRO_VERSION = "0.5.1";
 
 export const CLASTRO_CHANGELOG: ClastroChangelogEntry[] = [
+  {
+    version: "0.5.1",
+    date: "2026-05-25",
+    summary: "Backfill the missing 0.2-to-0.3 DB migration so existing v0.2 client deployments can upgrade cleanly.",
+    changes: [
+      "Added db/migrations/0.2-to-0.3.sql — creates the analytics_settings table that was introduced in v0.3.0. Fresh installs got it via db/schema.sql, but v0.2 deployments had no migration path to bring their live D1 in line. Now they do.",
+      "No code changes — purely a migration script that fills a documentation gap. Run alongside db/migrations/0.3-to-0.4.sql when upgrading a v0.2 deployment through to v0.4+.",
+    ],
+  },
   {
     version: "0.5.0",
     date: "2026-05-25",

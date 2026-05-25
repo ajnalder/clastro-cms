@@ -2257,12 +2257,20 @@ export interface AnalyticsSettings {
   ga4PropertyId: string;
   ga4ServiceAccountJson: string;
   gscSiteUrl: string;
+  googleOauthClientId: string;
+  googleOauthClientSecret: string;
+  googleOauthRefreshToken: string;
+  googleOauthEmail: string;
 }
 
 const DEFAULT_ANALYTICS_SETTINGS: AnalyticsSettings = {
   ga4PropertyId: "",
   ga4ServiceAccountJson: "",
   gscSiteUrl: "",
+  googleOauthClientId: "",
+  googleOauthClientSecret: "",
+  googleOauthRefreshToken: "",
+  googleOauthEmail: "",
 };
 
 export async function getAnalyticsSettings(locals?: App.Locals): Promise<AnalyticsSettings> {
@@ -2279,10 +2287,20 @@ export async function getAnalyticsSettings(locals?: App.Locals): Promise<Analyti
     const gaJson = row.ga4_service_account_json_encrypted
       ? await decryptStoredSecret(String(row.ga4_service_account_json_encrypted), secret)
       : "";
+    const oauthSecret = row.google_oauth_client_secret_encrypted
+      ? await decryptStoredSecret(String(row.google_oauth_client_secret_encrypted), secret)
+      : "";
+    const oauthRefresh = row.google_oauth_refresh_token_encrypted
+      ? await decryptStoredSecret(String(row.google_oauth_refresh_token_encrypted), secret)
+      : "";
     return {
       ga4PropertyId: String(row.ga4_property_id || ""),
       ga4ServiceAccountJson: gaJson,
       gscSiteUrl: String(row.gsc_site_url || ""),
+      googleOauthClientId: String(row.google_oauth_client_id || ""),
+      googleOauthClientSecret: oauthSecret,
+      googleOauthRefreshToken: oauthRefresh,
+      googleOauthEmail: String(row.google_oauth_email || ""),
     };
   } catch (error) {
     console.warn("getAnalyticsSettings fallback:", error);
@@ -2302,20 +2320,39 @@ export async function upsertAnalyticsSettings(
   const gaEnc = settings.ga4ServiceAccountJson
     ? await encryptStoredSecret(settings.ga4ServiceAccountJson, secret)
     : "";
+  const oauthSecretEnc = settings.googleOauthClientSecret
+    ? await encryptStoredSecret(settings.googleOauthClientSecret, secret)
+    : "";
+  const oauthRefreshEnc = settings.googleOauthRefreshToken
+    ? await encryptStoredSecret(settings.googleOauthRefreshToken, secret)
+    : "";
   await db
     .prepare(
-      `INSERT INTO analytics_settings (id, ga4_property_id, ga4_service_account_json_encrypted, gsc_site_url, updated_at)
-       VALUES (1, ?, ?, ?, CURRENT_TIMESTAMP)
+      `INSERT INTO analytics_settings (
+         id, ga4_property_id, ga4_service_account_json_encrypted, gsc_site_url,
+         google_oauth_client_id, google_oauth_client_secret_encrypted,
+         google_oauth_refresh_token_encrypted, google_oauth_email,
+         updated_at
+       )
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
        ON CONFLICT(id) DO UPDATE SET
          ga4_property_id = excluded.ga4_property_id,
          ga4_service_account_json_encrypted = excluded.ga4_service_account_json_encrypted,
          gsc_site_url = excluded.gsc_site_url,
+         google_oauth_client_id = excluded.google_oauth_client_id,
+         google_oauth_client_secret_encrypted = excluded.google_oauth_client_secret_encrypted,
+         google_oauth_refresh_token_encrypted = excluded.google_oauth_refresh_token_encrypted,
+         google_oauth_email = excluded.google_oauth_email,
          updated_at = CURRENT_TIMESTAMP`,
     )
     .bind(
       settings.ga4PropertyId || null,
       gaEnc || null,
       settings.gscSiteUrl || null,
+      settings.googleOauthClientId || null,
+      oauthSecretEnc || null,
+      oauthRefreshEnc || null,
+      settings.googleOauthEmail || null,
     )
     .run();
 }

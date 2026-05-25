@@ -3,8 +3,15 @@ import { timingSafeEqual } from "node:crypto";
 
 import { generateAiPostDraft, generateAiPostTitleIdeas } from "../../lib/ai";
 import type { CmsUserFeatureVisibility } from "../../lib/defaults";
-import { fetchGoogleAnalytics } from "../../lib/google-analytics";
-import { fetchGoogleSearchConsole } from "../../lib/google-search-console";
+import { fetchGoogleAnalytics, listGoogleAnalyticsProperties, GA4_SCOPE } from "../../lib/google-analytics";
+import { fetchGoogleSearchConsole, listGoogleSearchConsoleSites, GSC_SCOPE } from "../../lib/google-search-console";
+import { getGoogleAccessToken } from "../../lib/google-service-account";
+import {
+  buildAuthorizationUrl,
+  exchangeCodeForTokens,
+  getAccessTokenFromRefresh,
+  revokeRefreshToken,
+} from "../../lib/google-oauth";
 import {
   buildLogoutCookie,
   buildSessionCookie,
@@ -149,6 +156,80 @@ function redirectToLoginError(request: Request, error: string) {
   const url = new URL("/admin/login", request.url);
   url.searchParams.set("error", error);
   return redirectToPath(request, `${url.pathname}${url.search}${url.hash}`);
+}
+
+const GOOGLE_OAUTH_STATE_COOKIE = "clastro_google_oauth_state";
+const GOOGLE_OAUTH_CALLBACK_PATH = "/api/auth/google/callback";
+
+function buildGoogleOauthRedirectUri(request: Request): string {
+  // Build the absolute https URL of /api/auth/google/callback for the
+  // current host. This must EXACTLY match one of the "Authorized
+  // redirect URIs" configured on the OAuth 2.0 Client ID in GCP.
+  const url = new URL(GOOGLE_OAUTH_CALLBACK_PATH, request.url);
+  return url.toString();
+}
+
+function buildStateCookie(state: string, maxAgeSec: number): string {
+  return [
+    `${GOOGLE_OAUTH_STATE_COOKIE}=${state}`,
+    "Path=/",
+    `Max-Age=${maxAgeSec}`,
+    "HttpOnly",
+    "Secure",
+    "SameSite=Lax",
+  ].join("; ");
+}
+
+function clearStateCookie(): string {
+  return `${GOOGLE_OAUTH_STATE_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+}
+
+function readStateCookie(request: Request): string {
+  const cookie = request.headers.get("cookie") || "";
+  for (const part of cookie.split(/;\s*/)) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    if (part.slice(0, eq) === GOOGLE_OAUTH_STATE_COOKIE) {
+      return part.slice(eq + 1);
+    }
+  }
+  return "";
+}
+
+/**
+ * Returns an access token for a Google API call given the current analytics
+ * settings, preferring OAuth (admin's own Google account) and falling back
+ * to a service-account JSON if no OAuth token is connected. Throws if
+ * neither auth method is configured.
+ */
+async function getGoogleAnalyticsAccessToken(settings: {
+  ga4ServiceAccountJson: string;
+  googleOauthClientId: string;
+  googleOauthClientSecret: string;
+  googleOauthRefreshToken: string;
+}): Promise<{ accessToken: string; source: "oauth" | "service-account" }> {
+  if (
+    settings.googleOauthClientId &&
+    settings.googleOauthClientSecret &&
+    settings.googleOauthRefreshToken
+  ) {
+    const token = await getAccessTokenFromRefresh({
+      clientId: settings.googleOauthClientId,
+      clientSecret: settings.googleOauthClientSecret,
+      refreshToken: settings.googleOauthRefreshToken,
+    });
+    return { accessToken: token, source: "oauth" };
+  }
+  if (settings.ga4ServiceAccountJson) {
+    const token = await getGoogleAccessToken(settings.ga4ServiceAccountJson, [
+      GA4_SCOPE,
+      GSC_SCOPE,
+    ]);
+    return { accessToken: token, source: "service-account" };
+  }
+  throw new Error(
+    "No Google authentication configured — connect a Google account or paste a service account JSON.",
+  );
 }
 
 async function requireAdmin(context: Parameters<APIRoute>[0]) {
@@ -1233,24 +1314,31 @@ export const GET: APIRoute = async (context) => {
       ga4PropertyId: settings.ga4PropertyId,
       gscSiteUrl: settings.gscSiteUrl,
       hasGa4ServiceAccount: Boolean(settings.ga4ServiceAccountJson),
+      googleOauthClientId: settings.googleOauthClientId,
+      hasGoogleOauthClientSecret: Boolean(settings.googleOauthClientSecret),
+      hasGoogleOauthConnection: Boolean(settings.googleOauthRefreshToken),
+      googleOauthEmail: settings.googleOauthEmail,
+      googleOauthRedirectUri: buildGoogleOauthRedirectUri(context.request),
     });
   }
 
-  if (segments[0] === "analytics" && segments[1] === "ga4") {
+  if (segments[0] === "analytics" && segments[1] === "ga4" && segments.length === 2) {
     const auth = await requireAdmin(context);
     if (auth.response) {
       return auth.response;
     }
     const settings = await getAnalyticsSettings(context.locals);
-    if (!settings.ga4ServiceAccountJson || !settings.ga4PropertyId) {
+    const hasAuth = Boolean(settings.googleOauthRefreshToken) || Boolean(settings.ga4ServiceAccountJson);
+    if (!hasAuth || !settings.ga4PropertyId) {
       return json({ configured: false });
     }
     const url = new URL(context.request.url);
     const periodParam = url.searchParams.get("period") || "7d";
     const days = periodParam === "90d" ? 90 : periodParam === "30d" ? 30 : 7;
     try {
+      const { accessToken } = await getGoogleAnalyticsAccessToken(settings);
       const data = await fetchGoogleAnalytics({
-        serviceAccountJson: settings.ga4ServiceAccountJson,
+        accessToken,
         propertyId: settings.ga4PropertyId,
         days,
       });
@@ -1266,21 +1354,49 @@ export const GET: APIRoute = async (context) => {
     }
   }
 
-  if (segments[0] === "analytics" && segments[1] === "search-console") {
+  if (segments[0] === "analytics" && segments[1] === "ga4" && segments[2] === "properties") {
     const auth = await requireAdmin(context);
     if (auth.response) {
       return auth.response;
     }
     const settings = await getAnalyticsSettings(context.locals);
-    if (!settings.ga4ServiceAccountJson || !settings.gscSiteUrl) {
+    const hasAuth = Boolean(settings.googleOauthRefreshToken) || Boolean(settings.ga4ServiceAccountJson);
+    if (!hasAuth) {
+      return json({ configured: false, properties: [] });
+    }
+    try {
+      const { accessToken } = await getGoogleAnalyticsAccessToken(settings);
+      const properties = await listGoogleAnalyticsProperties(accessToken);
+      return json({ configured: true, properties });
+    } catch (error) {
+      return json(
+        {
+          configured: true,
+          properties: [],
+          error: error instanceof Error ? error.message : "Failed to list GA4 properties.",
+        },
+        502,
+      );
+    }
+  }
+
+  if (segments[0] === "analytics" && segments[1] === "search-console" && segments.length === 2) {
+    const auth = await requireAdmin(context);
+    if (auth.response) {
+      return auth.response;
+    }
+    const settings = await getAnalyticsSettings(context.locals);
+    const hasAuth = Boolean(settings.googleOauthRefreshToken) || Boolean(settings.ga4ServiceAccountJson);
+    if (!hasAuth || !settings.gscSiteUrl) {
       return json({ configured: false });
     }
     const url = new URL(context.request.url);
     const periodParam = url.searchParams.get("period") || "7d";
     const days = periodParam === "90d" ? 90 : periodParam === "30d" ? 30 : 7;
     try {
+      const { accessToken } = await getGoogleAnalyticsAccessToken(settings);
       const data = await fetchGoogleSearchConsole({
-        serviceAccountJson: settings.ga4ServiceAccountJson,
+        accessToken,
         siteUrl: settings.gscSiteUrl,
         days,
       });
@@ -1293,6 +1409,133 @@ export const GET: APIRoute = async (context) => {
         },
         502,
       );
+    }
+  }
+
+  if (segments[0] === "analytics" && segments[1] === "search-console" && segments[2] === "sites") {
+    const auth = await requireAdmin(context);
+    if (auth.response) {
+      return auth.response;
+    }
+    const settings = await getAnalyticsSettings(context.locals);
+    const hasAuth = Boolean(settings.googleOauthRefreshToken) || Boolean(settings.ga4ServiceAccountJson);
+    if (!hasAuth) {
+      return json({ configured: false, sites: [] });
+    }
+    try {
+      const { accessToken } = await getGoogleAnalyticsAccessToken(settings);
+      const sites = await listGoogleSearchConsoleSites(accessToken);
+      return json({ configured: true, sites });
+    } catch (error) {
+      return json(
+        {
+          configured: true,
+          sites: [],
+          error: error instanceof Error ? error.message : "Failed to list Search Console sites.",
+        },
+        502,
+      );
+    }
+  }
+
+  if (segments[0] === "auth" && segments[1] === "google" && segments[2] === "start") {
+    const auth = await requireAdmin(context);
+    if (auth.response) {
+      return auth.response;
+    }
+    const settings = await getAnalyticsSettings(context.locals);
+    if (!settings.googleOauthClientId || !settings.googleOauthClientSecret) {
+      return redirectToPath(
+        context.request,
+        "/admin?integrations_error=missing_oauth_client",
+      );
+    }
+    const state = crypto.randomUUID();
+    const redirectUri = buildGoogleOauthRedirectUri(context.request);
+    const authzUrl = buildAuthorizationUrl({
+      clientId: settings.googleOauthClientId,
+      redirectUri,
+      state,
+    });
+    return new Response(null, {
+      status: 303,
+      headers: {
+        location: authzUrl,
+        "set-cookie": buildStateCookie(state, 600), // 10 minutes to complete the flow
+      },
+    });
+  }
+
+  if (segments[0] === "auth" && segments[1] === "google" && segments[2] === "callback") {
+    const auth = await requireAdmin(context);
+    if (auth.response) {
+      return auth.response;
+    }
+    const url = new URL(context.request.url);
+    const code = url.searchParams.get("code") || "";
+    const stateFromGoogle = url.searchParams.get("state") || "";
+    const errorParam = url.searchParams.get("error") || "";
+    const expectedState = readStateCookie(context.request);
+
+    if (errorParam) {
+      return new Response(null, {
+        status: 303,
+        headers: {
+          location: `/admin?integrations_error=${encodeURIComponent(errorParam)}`,
+          "set-cookie": clearStateCookie(),
+        },
+      });
+    }
+    if (!code || !stateFromGoogle || !expectedState || stateFromGoogle !== expectedState) {
+      return new Response(null, {
+        status: 303,
+        headers: {
+          location: "/admin?integrations_error=oauth_state_mismatch",
+          "set-cookie": clearStateCookie(),
+        },
+      });
+    }
+
+    const settings = await getAnalyticsSettings(context.locals);
+    if (!settings.googleOauthClientId || !settings.googleOauthClientSecret) {
+      return new Response(null, {
+        status: 303,
+        headers: {
+          location: "/admin?integrations_error=missing_oauth_client",
+          "set-cookie": clearStateCookie(),
+        },
+      });
+    }
+
+    try {
+      const redirectUri = buildGoogleOauthRedirectUri(context.request);
+      const result = await exchangeCodeForTokens({
+        clientId: settings.googleOauthClientId,
+        clientSecret: settings.googleOauthClientSecret,
+        code,
+        redirectUri,
+      });
+      await upsertAnalyticsSettings(context.locals, {
+        ...settings,
+        googleOauthRefreshToken: result.refreshToken,
+        googleOauthEmail: result.email,
+      });
+      return new Response(null, {
+        status: 303,
+        headers: {
+          location: "/admin?integrations_connected=google",
+          "set-cookie": clearStateCookie(),
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "OAuth callback failed";
+      return new Response(null, {
+        status: 303,
+        headers: {
+          location: `/admin?integrations_error=${encodeURIComponent(message)}`,
+          "set-cookie": clearStateCookie(),
+        },
+      });
     }
   }
 
@@ -2057,6 +2300,8 @@ export const PUT: APIRoute = async (context) => {
       ga4PropertyId?: string;
       ga4ServiceAccountJson?: string;
       gscSiteUrl?: string;
+      googleOauthClientId?: string;
+      googleOauthClientSecret?: string;
     }>(context.request);
 
     if (!body || typeof body !== "object") {
@@ -2074,6 +2319,14 @@ export const PUT: APIRoute = async (context) => {
       gscSiteUrl: typeof body.gscSiteUrl === "string"
         ? body.gscSiteUrl.trim()
         : existing.gscSiteUrl,
+      googleOauthClientId: typeof body.googleOauthClientId === "string"
+        ? body.googleOauthClientId.trim()
+        : existing.googleOauthClientId,
+      googleOauthClientSecret: typeof body.googleOauthClientSecret === "string"
+        ? body.googleOauthClientSecret.trim()
+        : existing.googleOauthClientSecret,
+      googleOauthRefreshToken: existing.googleOauthRefreshToken,
+      googleOauthEmail: existing.googleOauthEmail,
     };
 
     await upsertAnalyticsSettings(context.locals, next);
@@ -2082,7 +2335,29 @@ export const PUT: APIRoute = async (context) => {
       ga4PropertyId: next.ga4PropertyId,
       gscSiteUrl: next.gscSiteUrl,
       hasGa4ServiceAccount: Boolean(next.ga4ServiceAccountJson),
+      googleOauthClientId: next.googleOauthClientId,
+      hasGoogleOauthClientSecret: Boolean(next.googleOauthClientSecret),
+      hasGoogleOauthConnection: Boolean(next.googleOauthRefreshToken),
+      googleOauthEmail: next.googleOauthEmail,
     });
+  }
+
+  if (segments[0] === "auth" && segments[1] === "google" && segments[2] === "disconnect") {
+    const auth = await requireAdmin(context);
+    if (auth.response) {
+      return auth.response;
+    }
+    const existing = await getAnalyticsSettings(context.locals);
+    if (existing.googleOauthRefreshToken) {
+      // Best-effort revoke against Google; the local clear runs even if this fails.
+      await revokeRefreshToken(existing.googleOauthRefreshToken);
+    }
+    await upsertAnalyticsSettings(context.locals, {
+      ...existing,
+      googleOauthRefreshToken: "",
+      googleOauthEmail: "",
+    });
+    return json({ disconnected: true });
   }
 
   if (segments[0] === "email" && segments[1] === "settings") {

@@ -1504,14 +1504,29 @@ export function AdminApp({ user }: { user: User }) {
     ga4ServiceAccountJsonInput: string
     gscSiteUrl: string
     hasGa4ServiceAccount: boolean
+    googleOauthClientId: string
+    googleOauthClientSecretInput: string
+    hasGoogleOauthClientSecret: boolean
+    hasGoogleOauthConnection: boolean
+    googleOauthEmail: string
+    googleOauthRedirectUri: string
   }
   const [analyticsSettings, setAnalyticsSettings] = useState<AnalyticsSettingsState>({
     ga4PropertyId: '',
     ga4ServiceAccountJsonInput: '',
     gscSiteUrl: '',
     hasGa4ServiceAccount: false,
+    googleOauthClientId: '',
+    googleOauthClientSecretInput: '',
+    hasGoogleOauthClientSecret: false,
+    hasGoogleOauthConnection: false,
+    googleOauthEmail: '',
+    googleOauthRedirectUri: '',
   })
   const [savingAnalyticsSettings, setSavingAnalyticsSettings] = useState(false)
+  const [ga4PropertyList, setGa4PropertyList] = useState<Array<{ propertyId: string; displayName: string; accountDisplayName: string }>>([])
+  const [gscSiteList, setGscSiteList] = useState<Array<{ siteUrl: string; permissionLevel: string }>>([])
+  const [loadingPropertyLists, setLoadingPropertyLists] = useState(false)
 
   const [analyticsPeriod, setAnalyticsPeriod] = useState<'7d' | '30d' | '90d'>('7d')
 
@@ -1883,6 +1898,11 @@ export function AdminApp({ user }: { user: User }) {
           ga4PropertyId: string
           gscSiteUrl: string
           hasGa4ServiceAccount: boolean
+          googleOauthClientId: string
+          hasGoogleOauthClientSecret: boolean
+          hasGoogleOauthConnection: boolean
+          googleOauthEmail: string
+          googleOauthRedirectUri: string
         }
         if (cancelled) return
         setAnalyticsSettings({
@@ -1890,6 +1910,12 @@ export function AdminApp({ user }: { user: User }) {
           ga4ServiceAccountJsonInput: '',
           gscSiteUrl: data.gscSiteUrl || '',
           hasGa4ServiceAccount: Boolean(data.hasGa4ServiceAccount),
+          googleOauthClientId: data.googleOauthClientId || '',
+          googleOauthClientSecretInput: '',
+          hasGoogleOauthClientSecret: Boolean(data.hasGoogleOauthClientSecret),
+          hasGoogleOauthConnection: Boolean(data.hasGoogleOauthConnection),
+          googleOauthEmail: data.googleOauthEmail || '',
+          googleOauthRedirectUri: data.googleOauthRedirectUri || '',
         })
       } catch (error) {
         if (!cancelled) {
@@ -1899,6 +1925,37 @@ export function AdminApp({ user }: { user: User }) {
     })()
     return () => { cancelled = true }
   }, [tab])
+
+  // When the Integrations tab is active and an auth method is connected,
+  // load the property/site picker lists from Google so the admin can choose
+  // from dropdowns instead of typing IDs.
+  useEffect(() => {
+    if (tab !== 'integrations') return
+    const hasAuth = analyticsSettings.hasGoogleOauthConnection || analyticsSettings.hasGa4ServiceAccount
+    if (!hasAuth) {
+      setGa4PropertyList([])
+      setGscSiteList([])
+      return
+    }
+    let cancelled = false
+    setLoadingPropertyLists(true)
+    void (async () => {
+      try {
+        const [propsRes, sitesRes] = await Promise.all([
+          fetch('/api/analytics/ga4/properties'),
+          fetch('/api/analytics/search-console/sites'),
+        ])
+        const propsData = await propsRes.json().catch(() => ({})) as { properties?: Array<{ propertyId: string; displayName: string; accountDisplayName: string }>; error?: string }
+        const sitesData = await sitesRes.json().catch(() => ({})) as { sites?: Array<{ siteUrl: string; permissionLevel: string }>; error?: string }
+        if (cancelled) return
+        setGa4PropertyList(propsData.properties || [])
+        setGscSiteList(sitesData.sites || [])
+      } finally {
+        if (!cancelled) setLoadingPropertyLists(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [tab, analyticsSettings.hasGoogleOauthConnection, analyticsSettings.hasGa4ServiceAccount])
 
   // Fetch GA4 + Search Console whenever the dashboard is active or the period changes.
   useEffect(() => {
@@ -3019,9 +3076,13 @@ export function AdminApp({ user }: { user: User }) {
       const body: Record<string, unknown> = {
         ga4PropertyId: analyticsSettings.ga4PropertyId,
         gscSiteUrl: analyticsSettings.gscSiteUrl,
+        googleOauthClientId: analyticsSettings.googleOauthClientId,
       }
       if (analyticsSettings.ga4ServiceAccountJsonInput) {
         body.ga4ServiceAccountJson = analyticsSettings.ga4ServiceAccountJsonInput
+      }
+      if (analyticsSettings.googleOauthClientSecretInput) {
+        body.googleOauthClientSecret = analyticsSettings.googleOauthClientSecretInput
       }
       const response = await fetch('/api/integrations/analytics', {
         body: JSON.stringify(body),
@@ -3035,18 +3096,45 @@ export function AdminApp({ user }: { user: User }) {
         ga4PropertyId: string
         gscSiteUrl: string
         hasGa4ServiceAccount: boolean
+        googleOauthClientId: string
+        hasGoogleOauthClientSecret: boolean
+        hasGoogleOauthConnection: boolean
+        googleOauthEmail: string
       }
-      setAnalyticsSettings({
+      setAnalyticsSettings((current) => ({
+        ...current,
         ga4PropertyId: saved.ga4PropertyId || '',
         ga4ServiceAccountJsonInput: '',
         gscSiteUrl: saved.gscSiteUrl || '',
         hasGa4ServiceAccount: Boolean(saved.hasGa4ServiceAccount),
-      })
+        googleOauthClientId: saved.googleOauthClientId || '',
+        googleOauthClientSecretInput: '',
+        hasGoogleOauthClientSecret: Boolean(saved.hasGoogleOauthClientSecret),
+        hasGoogleOauthConnection: Boolean(saved.hasGoogleOauthConnection),
+        googleOauthEmail: saved.googleOauthEmail || '',
+      }))
       setStatus({ kind: 'info', text: 'Analytics integrations saved.' })
     } catch (error) {
       setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to save analytics settings.' })
     } finally {
       setSavingAnalyticsSettings(false)
+    }
+  }
+
+  async function disconnectGoogleAccount() {
+    try {
+      const response = await fetch('/api/auth/google/disconnect', { method: 'POST' })
+      if (!response.ok) throw new Error(`Failed to disconnect (${response.status})`)
+      setAnalyticsSettings((current) => ({
+        ...current,
+        hasGoogleOauthConnection: false,
+        googleOauthEmail: '',
+      }))
+      setGa4PropertyList([])
+      setGscSiteList([])
+      setStatus({ kind: 'info', text: 'Disconnected Google account.' })
+    } catch (error) {
+      setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Failed to disconnect.' })
     }
   }
 
@@ -6879,6 +6967,81 @@ export function AdminApp({ user }: { user: User }) {
 
           {tab === 'integrations' && (
             <div className="space-y-6">
+              {/* ── Google Account (OAuth) ──────────────────────────── */}
+              <section className="space-y-5 rounded-lg border border-border bg-card p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-semibold tracking-tight text-foreground">Google Account</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Sign in with your own Google account (the one that already has access to your clients&apos; GA4 + Search Console). One sign-in covers both. The connection is only visible to super admins.
+                    </p>
+                  </div>
+                  <span className={cn(
+                    'inline-flex h-6 items-center rounded-full px-2.5 text-[10px] font-semibold uppercase tracking-[0.08em]',
+                    analyticsSettings.hasGoogleOauthConnection
+                      ? 'bg-cyan-400/15 text-cyan-200'
+                      : 'bg-muted text-muted-foreground',
+                  )}>
+                    {analyticsSettings.hasGoogleOauthConnection ? 'Connected' : 'Not connected'}
+                  </span>
+                </div>
+
+                {analyticsSettings.hasGoogleOauthConnection ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-cyan-400/30 bg-cyan-400/5 p-4">
+                    <div className="text-sm">
+                      <div className="text-foreground">Connected as <strong>{analyticsSettings.googleOauthEmail || '(unknown email)'}</strong></div>
+                      <div className="text-xs text-muted-foreground">Refresh token stored encrypted. Disconnect at any time.</div>
+                    </div>
+                    <Button onClick={() => { void disconnectGoogleAccount() }} size="sm" type="button" variant="outline">
+                      Disconnect
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="block space-y-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">OAuth Client ID</span>
+                        <input
+                          className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 font-mono text-xs text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onChange={(event) => setAnalyticsSettings((current) => ({ ...current, googleOauthClientId: event.target.value }))}
+                          placeholder="e.g. 123456789-abc...apps.googleusercontent.com"
+                          value={analyticsSettings.googleOauthClientId}
+                        />
+                      </label>
+                      <label className="block space-y-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">OAuth Client Secret</span>
+                        <input
+                          autoComplete="off"
+                          className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 font-mono text-xs text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onChange={(event) => setAnalyticsSettings((current) => ({ ...current, googleOauthClientSecretInput: event.target.value }))}
+                          placeholder={analyticsSettings.hasGoogleOauthClientSecret ? '••••••••  (stored)' : 'GOCSPX-...'}
+                          type="password"
+                          value={analyticsSettings.googleOauthClientSecretInput}
+                        />
+                      </label>
+                    </div>
+                    {analyticsSettings.googleOauthRedirectUri && (
+                      <div className="rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs">
+                        <div className="font-medium text-foreground">When creating your OAuth Client ID in GCP, add this exact redirect URI:</div>
+                        <code className="mt-1 block break-all font-mono text-foreground">{analyticsSettings.googleOauthRedirectUri}</code>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Create at console.cloud.google.com → APIs &amp; Services → Credentials → <strong>Create credentials → OAuth client ID → Web application</strong>. Set up the OAuth consent screen first (External, Testing mode, add yourself as a Test user). Then save the Client ID + Secret here, click <strong>Save</strong>, and the <strong>Connect Google account</strong> button will appear.
+                    </p>
+                    {analyticsSettings.googleOauthClientId && analyticsSettings.hasGoogleOauthClientSecret && (
+                      <a
+                        className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+                        href="/api/auth/google/start"
+                      >
+                        Connect Google account
+                      </a>
+                    )}
+                  </div>
+                )}
+              </section>
+
+              {/* ── Google Analytics 4 ──────────────────────────────── */}
               <section className="space-y-5 rounded-lg border border-border bg-card p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -6889,47 +7052,54 @@ export function AdminApp({ user }: { user: User }) {
                   </div>
                   <span className={cn(
                     'inline-flex h-6 items-center rounded-full px-2.5 text-[10px] font-semibold uppercase tracking-[0.08em]',
-                    analyticsSettings.hasGa4ServiceAccount && analyticsSettings.ga4PropertyId
+                    analyticsSettings.ga4PropertyId
                       ? 'bg-cyan-400/15 text-cyan-200'
                       : 'bg-muted text-muted-foreground',
                   )}>
-                    {analyticsSettings.hasGa4ServiceAccount && analyticsSettings.ga4PropertyId ? 'Connected' : 'Not configured'}
+                    {analyticsSettings.ga4PropertyId ? 'Configured' : 'Not configured'}
                   </span>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block space-y-1.5">
-                    <span className="text-xs font-medium text-muted-foreground">GA4 Property ID</span>
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">GA4 Property</span>
+                  {ga4PropertyList.length > 0 ? (
+                    <select
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) => setAnalyticsSettings((current) => ({ ...current, ga4PropertyId: event.target.value }))}
+                      value={analyticsSettings.ga4PropertyId}
+                    >
+                      <option value="">— Select a property —</option>
+                      {ga4PropertyList.map((entry) => (
+                        <option key={entry.propertyId} value={entry.propertyId}>
+                          {entry.accountDisplayName} → {entry.displayName} ({entry.propertyId})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
                     <input
                       className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       onChange={(event) => setAnalyticsSettings((current) => ({ ...current, ga4PropertyId: event.target.value }))}
                       placeholder="e.g. 312345678"
                       value={analyticsSettings.ga4PropertyId}
                     />
-                    <small className="text-xs text-muted-foreground">In GA4 → Admin → Property Settings (numeric, not the &apos;G-&apos; measurement ID).</small>
-                  </label>
-                  <label className="block space-y-1.5">
-                    <span className="text-xs font-medium text-muted-foreground">Service account JSON</span>
-                    <textarea
-                      autoComplete="off"
-                      className="flex min-h-[120px] w-full rounded-md border border-input bg-card px-3 py-2 font-mono text-xs text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      onChange={(event) => setAnalyticsSettings((current) => ({ ...current, ga4ServiceAccountJsonInput: event.target.value }))}
-                      placeholder={analyticsSettings.hasGa4ServiceAccount ? '••••••••  (stored)' : 'Paste the entire service-account JSON key here'}
-                      value={analyticsSettings.ga4ServiceAccountJsonInput}
-                    />
-                    <small className="text-xs text-muted-foreground">
-                      Create at console.cloud.google.com → IAM &amp; Admin → Service Accounts → Keys. Add the service account email as a <em>Viewer</em> on the GA4 property and as a <em>Restricted</em> user in Search Console. JSON is stored encrypted.
-                    </small>
-                  </label>
-                </div>
+                  )}
+                  <small className="text-xs text-muted-foreground">
+                    {ga4PropertyList.length > 0
+                      ? 'Pick the GA4 property that powers this site\'s dashboard.'
+                      : loadingPropertyLists
+                      ? 'Loading properties from Google…'
+                      : 'Connect a Google account above to populate this dropdown, or type a numeric property ID.'}
+                  </small>
+                </label>
               </section>
 
+              {/* ── Google Search Console ───────────────────────────── */}
               <section className="space-y-5 rounded-lg border border-border bg-card p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="text-base font-semibold tracking-tight text-foreground">Google Search Console</h2>
                     <p className="text-sm text-muted-foreground">
-                      Top queries, clicks, impressions, CTR, and average position from organic search. Re-uses the GA4 service account above.
+                      Top queries, clicks, impressions, CTR, and average position from organic search.
                     </p>
                   </div>
                   <span className={cn(
@@ -6943,18 +7113,62 @@ export function AdminApp({ user }: { user: User }) {
                 </div>
 
                 <label className="block space-y-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">Search Console site URL</span>
-                  <input
-                    className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    onChange={(event) => setAnalyticsSettings((current) => ({ ...current, gscSiteUrl: event.target.value }))}
-                    placeholder="sc-domain:example.com   or   https://www.example.com/"
-                    value={analyticsSettings.gscSiteUrl}
-                  />
+                  <span className="text-xs font-medium text-muted-foreground">Search Console site</span>
+                  {gscSiteList.length > 0 ? (
+                    <select
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) => setAnalyticsSettings((current) => ({ ...current, gscSiteUrl: event.target.value }))}
+                      value={analyticsSettings.gscSiteUrl}
+                    >
+                      <option value="">— Select a site —</option>
+                      {gscSiteList.map((entry) => (
+                        <option key={entry.siteUrl} value={entry.siteUrl}>
+                          {entry.siteUrl} ({entry.permissionLevel.replace(/^site/, '').toLowerCase()})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) => setAnalyticsSettings((current) => ({ ...current, gscSiteUrl: event.target.value }))}
+                      placeholder="sc-domain:example.com   or   https://www.example.com/"
+                      value={analyticsSettings.gscSiteUrl}
+                    />
+                  )}
                   <small className="text-xs text-muted-foreground">
-                    Match the property exactly as it appears in Search Console. Domain properties use the <code className="font-mono">sc-domain:</code> prefix; URL-prefix properties use the full URL.
+                    {gscSiteList.length > 0
+                      ? 'Pick the Search Console property that powers this site\'s dashboard.'
+                      : loadingPropertyLists
+                      ? 'Loading sites from Google…'
+                      : 'Connect a Google account above to populate this dropdown, or type the property identifier.'}
                   </small>
                 </label>
               </section>
+
+              {/* ── Service account (fallback) ──────────────────────── */}
+              <details className="rounded-lg border border-border bg-card p-5 shadow-sm">
+                <summary className="cursor-pointer text-sm font-semibold text-foreground">
+                  Advanced: use a service account instead
+                </summary>
+                <div className="mt-4 space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Use a Google service-account JSON key as a fallback / unattended auth method. Note: Search Console&apos;s &quot;Add user&quot; UI is hostile to service-account emails; the OAuth flow above is the recommended path.
+                  </p>
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">Service account JSON</span>
+                    <textarea
+                      autoComplete="off"
+                      className="flex min-h-[120px] w-full rounded-md border border-input bg-card px-3 py-2 font-mono text-xs text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) => setAnalyticsSettings((current) => ({ ...current, ga4ServiceAccountJsonInput: event.target.value }))}
+                      placeholder={analyticsSettings.hasGa4ServiceAccount ? '••••••••  (stored)' : 'Paste the entire service-account JSON key here'}
+                      value={analyticsSettings.ga4ServiceAccountJsonInput}
+                    />
+                    <small className="text-xs text-muted-foreground">
+                      JSON is stored encrypted. OAuth (above) takes precedence when both are configured.
+                    </small>
+                  </label>
+                </div>
+              </details>
             </div>
           )}
 

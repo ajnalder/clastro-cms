@@ -4,15 +4,19 @@
 // the CMS dashboard cares about (overview KPIs, top pages, top sources,
 // daily sessions timeseries).
 //
-// Auth is delegated to ./google-service-account.ts — caller passes the raw
-// JSON key once and we re-use the access token across the four reports.
+// Auth-agnostic: the caller supplies an access token (obtained either via
+// google-oauth.ts using a refresh token, or via google-service-account.ts
+// using a service-account JSON key). This file doesn't care how the token
+// was minted, only that it has the analytics.readonly scope.
+//
+// Also exports `listGoogleAnalyticsProperties` for the Integrations
+// property-picker dropdown — uses the GA4 Admin API to enumerate every
+// property the access token can see.
 
-import { getGoogleAccessToken } from "./google-service-account";
-
-const GA4_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
+export const GA4_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
 
 export interface GoogleAnalyticsParams {
-  serviceAccountJson: string;
+  accessToken: string;
   propertyId: string;
   days: number;
 }
@@ -33,12 +37,11 @@ export interface GoogleAnalyticsResult {
 export async function fetchGoogleAnalytics(
   params: GoogleAnalyticsParams,
 ): Promise<GoogleAnalyticsResult> {
-  const { serviceAccountJson, propertyId, days } = params;
+  const { accessToken, propertyId, days } = params;
   if (!propertyId.trim()) {
     throw new Error("GA4 property ID is not set.");
   }
   const normalizedDays = days > 0 ? Math.floor(days) : 7;
-  const accessToken = await getGoogleAccessToken(serviceAccountJson, [GA4_SCOPE]);
   const dateRange = { startDate: `${normalizedDays}daysAgo`, endDate: "today" };
 
   const [totalsRes, timeseriesRes, topPagesRes, topSourcesRes] = await Promise.all([
@@ -184,4 +187,68 @@ function isoDateDaysAgo(daysAgo: number): string {
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
   return `${text.slice(0, max - 1)}…`;
+}
+
+// ── Property list (for Integrations dropdown) ──────────────────────────
+
+export interface GoogleAnalyticsPropertySummary {
+  propertyId: string;       // numeric, what the Data API wants
+  displayName: string;      // user-facing
+  accountDisplayName: string;
+}
+
+interface AccountSummariesResponse {
+  accountSummaries?: Array<{
+    account?: string;
+    displayName?: string;
+    propertySummaries?: Array<{
+      property?: string;        // "properties/123456789"
+      displayName?: string;
+    }>;
+  }>;
+  nextPageToken?: string;
+}
+
+/**
+ * Enumerate every GA4 property the access token can see, across every
+ * account. Uses the Admin API v1beta accountSummaries.list endpoint.
+ *
+ * Paginates internally — paginates rarely matter (most users have <10
+ * accounts) but we follow nextPageToken for completeness.
+ */
+export async function listGoogleAnalyticsProperties(
+  accessToken: string,
+): Promise<GoogleAnalyticsPropertySummary[]> {
+  const result: GoogleAnalyticsPropertySummary[] = [];
+  let pageToken: string | undefined;
+  do {
+    const url = new URL("https://analyticsadmin.googleapis.com/v1beta/accountSummaries");
+    url.searchParams.set("pageSize", "200");
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+    const response = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(
+        `GA4 Admin API error (${response.status}): ${truncate(text, 240)}`,
+      );
+    }
+    const data = (await response.json()) as AccountSummariesResponse;
+    for (const account of data.accountSummaries || []) {
+      const accountDisplayName = account.displayName || "(unnamed account)";
+      for (const property of account.propertySummaries || []) {
+        // property is "properties/123456789" — strip the prefix.
+        const propertyId = (property.property || "").replace(/^properties\//, "");
+        if (!propertyId) continue;
+        result.push({
+          propertyId,
+          displayName: property.displayName || `Property ${propertyId}`,
+          accountDisplayName,
+        });
+      }
+    }
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+  return result;
 }

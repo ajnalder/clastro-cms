@@ -171,6 +171,10 @@ CREATE TABLE IF NOT EXISTS analytics_settings (
   ga4_property_id TEXT,
   ga4_service_account_json_encrypted TEXT,
   gsc_site_url TEXT,
+  google_oauth_client_id TEXT,
+  google_oauth_client_secret_encrypted TEXT,
+  google_oauth_refresh_token_encrypted TEXT,
+  google_oauth_email TEXT,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

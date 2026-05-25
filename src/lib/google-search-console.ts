@@ -7,16 +7,17 @@
 //   - Top queries
 //   - Top pages
 //
-// Auth is delegated to ./google-service-account.ts — the same service-account
-// JSON used by GA4 is re-used here; the user just needs to add the service
-// account email as a Restricted user on the Search Console property.
+// Auth-agnostic: the caller supplies an access token. In practice that
+// comes from google-oauth.ts (preferred — GSC's "Add user" UI is hostile
+// to service accounts) or from google-service-account.ts.
+//
+// Also exports `listGoogleSearchConsoleSites` for the Integrations site-
+// picker dropdown.
 
-import { getGoogleAccessToken } from "./google-service-account";
-
-const GSC_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
+export const GSC_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
 
 export interface GoogleSearchConsoleParams {
-  serviceAccountJson: string;
+  accessToken: string;
   siteUrl: string;
   days: number;
 }
@@ -49,12 +50,11 @@ export interface GoogleSearchConsoleResult {
 export async function fetchGoogleSearchConsole(
   params: GoogleSearchConsoleParams,
 ): Promise<GoogleSearchConsoleResult> {
-  const { serviceAccountJson, siteUrl, days } = params;
+  const { accessToken, siteUrl, days } = params;
   if (!siteUrl.trim()) {
     throw new Error("Search Console site URL is not set.");
   }
   const normalizedDays = days > 0 ? Math.floor(days) : 7;
-  const accessToken = await getGoogleAccessToken(serviceAccountJson, [GSC_SCOPE]);
   const startDate = isoDateDaysAgo(normalizedDays);
   const endDate = isoDateDaysAgo(0);
 
@@ -182,4 +182,38 @@ function isoDateDaysAgo(daysAgo: number): string {
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
   return `${text.slice(0, max - 1)}…`;
+}
+
+// ── Site list (for Integrations dropdown) ──────────────────────────────
+
+export interface GoogleSearchConsoleSiteSummary {
+  siteUrl: string;          // exact identifier the API wants, e.g. "sc-domain:example.com"
+  permissionLevel: string;  // "siteOwner" | "siteFullUser" | "siteRestrictedUser" | "siteUnverifiedUser"
+}
+
+/**
+ * Enumerate every Search Console site the access token can see.
+ * Filters out unverified properties (you can't query data for those).
+ */
+export async function listGoogleSearchConsoleSites(
+  accessToken: string,
+): Promise<GoogleSearchConsoleSiteSummary[]> {
+  const response = await fetch("https://www.googleapis.com/webmasters/v3/sites", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(
+      `Search Console sites.list error (${response.status}): ${truncate(text, 240)}`,
+    );
+  }
+  const data = (await response.json()) as {
+    siteEntry?: Array<{ siteUrl?: string; permissionLevel?: string }>;
+  };
+  return (data.siteEntry || [])
+    .filter((entry) => entry.siteUrl && entry.permissionLevel && entry.permissionLevel !== "siteUnverifiedUser")
+    .map((entry) => ({
+      siteUrl: entry.siteUrl!,
+      permissionLevel: entry.permissionLevel!,
+    }));
 }

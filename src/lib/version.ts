@@ -5,9 +5,23 @@ export interface ClastroChangelogEntry {
   changes: string[];
 }
 
-export const CLASTRO_VERSION = "0.3.1";
+export const CLASTRO_VERSION = "0.4.0";
 
 export const CLASTRO_CHANGELOG: ClastroChangelogEntry[] = [
+  {
+    version: "0.4.0",
+    date: "2026-05-25",
+    summary: "Connect Google with one click: OAuth flow + property/site pickers replace the service-account dance.",
+    changes: [
+      "New Google Account card in Integrations: a super admin pastes an OAuth Client ID + Secret, clicks Connect Google account, signs in as themselves, and the refresh token is stored encrypted. One sign-in covers GA4 + Search Console.",
+      "GA4 Property and Search Console Site fields are now populated as dropdowns sourced from accountSummaries.list and sites.list respectively — no more typing numeric property IDs or guessing whether to use the sc-domain: prefix.",
+      "Service-account JSON moves to an 'Advanced: use a service account instead' disclosure — kept as a fallback for unattended auth setups, but OAuth is the recommended path because Search Console's UI is hostile to service-account emails.",
+      "Existing GA4 + Search Console API routes now prefer the OAuth refresh token when present, and fall back to the service account JSON if not — so 0.3.x setups keep working without changes.",
+      "New endpoints: GET /api/auth/google/start, GET /api/auth/google/callback, POST /api/auth/google/disconnect, GET /api/analytics/ga4/properties, GET /api/analytics/search-console/sites.",
+      "New src/lib/google-oauth.ts: authorization URL builder, code-for-tokens exchange, refresh-to-access-token swap with in-memory cache, revoke helper. Refresh tokens and client secrets encrypted via the same AI_SETTINGS_ENCRYPTION_SECRET envelope as every other provider secret.",
+      "DB migration db/migrations/0.3-to-0.4.sql adds four columns to analytics_settings (google_oauth_client_id, google_oauth_client_secret_encrypted, google_oauth_refresh_token_encrypted, google_oauth_email). Run with wrangler d1 execute against the live database.",
+    ],
+  },
   {
     version: "0.3.1",
     date: "2026-05-25",

@@ -4,6 +4,7 @@ import { timingSafeEqual } from "node:crypto";
 import { generateAiPostDraft, generateAiPostTitleIdeas } from "../../lib/ai";
 import type { CmsUserFeatureVisibility } from "../../lib/defaults";
 import { fetchGoogleAnalytics } from "../../lib/google-analytics";
+import { fetchGoogleSearchConsole } from "../../lib/google-search-console";
 import {
   buildLogoutCookie,
   buildSessionCookie,
@@ -1259,6 +1260,36 @@ export const GET: APIRoute = async (context) => {
         {
           configured: true,
           error: error instanceof Error ? error.message : "Failed to load GA4 analytics.",
+        },
+        502,
+      );
+    }
+  }
+
+  if (segments[0] === "analytics" && segments[1] === "search-console") {
+    const auth = await requireAdmin(context);
+    if (auth.response) {
+      return auth.response;
+    }
+    const settings = await getAnalyticsSettings(context.locals);
+    if (!settings.ga4ServiceAccountJson || !settings.gscSiteUrl) {
+      return json({ configured: false });
+    }
+    const url = new URL(context.request.url);
+    const periodParam = url.searchParams.get("period") || "7d";
+    const days = periodParam === "90d" ? 90 : periodParam === "30d" ? 30 : 7;
+    try {
+      const data = await fetchGoogleSearchConsole({
+        serviceAccountJson: settings.ga4ServiceAccountJson,
+        siteUrl: settings.gscSiteUrl,
+        days,
+      });
+      return json({ configured: true, ...data });
+    } catch (error) {
+      return json(
+        {
+          configured: true,
+          error: error instanceof Error ? error.message : "Failed to load Search Console data.",
         },
         502,
       );

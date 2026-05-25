@@ -1514,6 +1514,57 @@ export function AdminApp({ user }: { user: User }) {
   const [savingAnalyticsSettings, setSavingAnalyticsSettings] = useState(false)
 
   const [analyticsPeriod, setAnalyticsPeriod] = useState<'7d' | '30d' | '90d'>('7d')
+
+  type Ga4AnalyticsState = {
+    configured: boolean
+    error?: string
+    loading: boolean
+    period: { since: string; until: string; days: number } | null
+    totals: {
+      sessions: number
+      activeUsers: number
+      engagementRate: number
+      averageSessionDurationSec: number
+    } | null
+    timeseries: Array<{ date: string; sessions: number; activeUsers: number }>
+    topPages: Array<{ path: string; title: string; sessions: number; activeUsers: number }>
+    topSources: Array<{ source: string; medium: string; sessions: number }>
+  }
+  const [ga4Analytics, setGa4Analytics] = useState<Ga4AnalyticsState>({
+    configured: false,
+    loading: false,
+    period: null,
+    totals: null,
+    timeseries: [],
+    topPages: [],
+    topSources: [],
+  })
+
+  type GscAnalyticsState = {
+    configured: boolean
+    error?: string
+    loading: boolean
+    period: { since: string; until: string; days: number } | null
+    totals: {
+      clicks: number
+      impressions: number
+      ctr: number
+      averagePosition: number
+    } | null
+    timeseries: Array<{ date: string; clicks: number; impressions: number }>
+    topQueries: Array<{ query: string; clicks: number; impressions: number; ctr: number; position: number }>
+    topPages: Array<{ page: string; clicks: number; impressions: number; ctr: number; position: number }>
+  }
+  const [gscAnalytics, setGscAnalytics] = useState<GscAnalyticsState>({
+    configured: false,
+    loading: false,
+    period: null,
+    totals: null,
+    timeseries: [],
+    topQueries: [],
+    topPages: [],
+  })
+
   const [uploadingSettingsAsset, setUploadingSettingsAsset] = useState<SettingsAssetField | ''>('')
   const [sharingToLinkedIn, setSharingToLinkedIn] = useState(false)
   const [unsavedProductDialog, setUnsavedProductDialog] = useState<{ actionLabel: string } | null>(null)
@@ -1848,6 +1899,120 @@ export function AdminApp({ user }: { user: User }) {
     })()
     return () => { cancelled = true }
   }, [tab])
+
+  // Fetch GA4 + Search Console whenever the dashboard is active or the period changes.
+  useEffect(() => {
+    if (tab !== 'dashboard') {
+      return
+    }
+    let cancelled = false
+
+    if (analyticsSettings.hasGa4ServiceAccount && analyticsSettings.ga4PropertyId) {
+      setGa4Analytics((current) => ({ ...current, loading: true, error: undefined }))
+      void (async () => {
+        try {
+          const response = await fetch(`/api/analytics/ga4?period=${analyticsPeriod}`)
+          if (!response.ok) {
+            const detail = await response.json().catch(() => ({})) as { error?: string }
+            throw new Error(detail.error || `Failed to load GA4 analytics (${response.status})`)
+          }
+          const data = await response.json() as {
+            configured?: boolean
+            error?: string
+            period?: Ga4AnalyticsState['period']
+            timeseries?: Ga4AnalyticsState['timeseries']
+            topPages?: Ga4AnalyticsState['topPages']
+            topSources?: Ga4AnalyticsState['topSources']
+            totals?: Ga4AnalyticsState['totals']
+          }
+          if (cancelled) return
+          setGa4Analytics({
+            configured: Boolean(data.configured),
+            error: data.error,
+            loading: false,
+            period: data.period || null,
+            timeseries: data.timeseries || [],
+            topPages: data.topPages || [],
+            topSources: data.topSources || [],
+            totals: data.totals || null,
+          })
+        } catch (error) {
+          if (!cancelled) {
+            setGa4Analytics((current) => ({
+              ...current,
+              configured: true,
+              error: error instanceof Error ? error.message : 'Failed to load GA4 analytics.',
+              loading: false,
+            }))
+          }
+        }
+      })()
+    } else {
+      setGa4Analytics({
+        configured: false,
+        loading: false,
+        period: null,
+        totals: null,
+        timeseries: [],
+        topPages: [],
+        topSources: [],
+      })
+    }
+
+    if (analyticsSettings.hasGa4ServiceAccount && analyticsSettings.gscSiteUrl) {
+      setGscAnalytics((current) => ({ ...current, loading: true, error: undefined }))
+      void (async () => {
+        try {
+          const response = await fetch(`/api/analytics/search-console?period=${analyticsPeriod}`)
+          if (!response.ok) {
+            const detail = await response.json().catch(() => ({})) as { error?: string }
+            throw new Error(detail.error || `Failed to load Search Console data (${response.status})`)
+          }
+          const data = await response.json() as {
+            configured?: boolean
+            error?: string
+            period?: GscAnalyticsState['period']
+            timeseries?: GscAnalyticsState['timeseries']
+            topQueries?: GscAnalyticsState['topQueries']
+            topPages?: GscAnalyticsState['topPages']
+            totals?: GscAnalyticsState['totals']
+          }
+          if (cancelled) return
+          setGscAnalytics({
+            configured: Boolean(data.configured),
+            error: data.error,
+            loading: false,
+            period: data.period || null,
+            timeseries: data.timeseries || [],
+            topQueries: data.topQueries || [],
+            topPages: data.topPages || [],
+            totals: data.totals || null,
+          })
+        } catch (error) {
+          if (!cancelled) {
+            setGscAnalytics((current) => ({
+              ...current,
+              configured: true,
+              error: error instanceof Error ? error.message : 'Failed to load Search Console data.',
+              loading: false,
+            }))
+          }
+        }
+      })()
+    } else {
+      setGscAnalytics({
+        configured: false,
+        loading: false,
+        period: null,
+        totals: null,
+        timeseries: [],
+        topQueries: [],
+        topPages: [],
+      })
+    }
+
+    return () => { cancelled = true }
+  }, [tab, analyticsPeriod, analyticsSettings.hasGa4ServiceAccount, analyticsSettings.ga4PropertyId, analyticsSettings.gscSiteUrl])
 
   // Load Email tab data (settings + submissions) when activated
   useEffect(() => {
@@ -3865,8 +4030,57 @@ export function AdminApp({ user }: { user: User }) {
 
             const [latestRelease, ...priorReleases] = CLASTRO_CHANGELOG
 
-            const analyticsConfigured = analyticsSettings.hasGa4ServiceAccount
+            const ga4Configured = analyticsSettings.hasGa4ServiceAccount
               && Boolean(analyticsSettings.ga4PropertyId)
+            const gscConfigured = analyticsSettings.hasGa4ServiceAccount
+              && Boolean(analyticsSettings.gscSiteUrl)
+            const analyticsConfigured = ga4Configured || gscConfigured
+
+            // Number formatting helpers
+            const formatNumber = (n: number) => new Intl.NumberFormat().format(Math.round(n))
+            const formatPercent = (n: number) => `${(n * 100).toFixed(1)}%`
+            const formatPosition = (n: number) => n > 0 ? n.toFixed(1) : '—'
+            const formatDuration = (sec: number) => {
+              if (!sec || !Number.isFinite(sec)) return '0s'
+              if (sec < 60) return `${Math.round(sec)}s`
+              const m = Math.floor(sec / 60)
+              const s = Math.round(sec - m * 60)
+              return `${m}m ${s}s`
+            }
+
+            const ga4Ts = ga4Analytics.timeseries
+            const chartWidth = 600
+            const chartHeight = 120
+            const sparklineMax = Math.max(1, ...ga4Ts.map((d) => d.sessions))
+            const sparklinePoints = ga4Ts.length > 1
+              ? ga4Ts.map((d, i) => {
+                  const x = (i / (ga4Ts.length - 1)) * chartWidth
+                  const y = chartHeight - (d.sessions / sparklineMax) * (chartHeight - 8) - 4
+                  return `${x.toFixed(2)},${y.toFixed(2)}`
+                }).join(' ')
+              : ''
+
+            const periodLabel = ga4Analytics.period
+              ? `${ga4Analytics.period.since} → ${ga4Analytics.period.until}`
+              : gscAnalytics.period
+              ? `${gscAnalytics.period.since} → ${gscAnalytics.period.until}`
+              : `Past ${analyticsPeriod}`
+
+            const ga4Totals = ga4Analytics.totals
+            const gscTotals = gscAnalytics.totals
+            const kpiTiles: Array<{ detail: string; label: string; value: string }> = []
+            if (ga4Totals) {
+              kpiTiles.push(
+                { label: 'Sessions', value: formatNumber(ga4Totals.sessions), detail: `Avg duration ${formatDuration(ga4Totals.averageSessionDurationSec)}` },
+                { label: 'Active users', value: formatNumber(ga4Totals.activeUsers), detail: `Engagement ${formatPercent(ga4Totals.engagementRate)}` },
+              )
+            }
+            if (gscTotals) {
+              kpiTiles.push(
+                { label: 'Clicks (search)', value: formatNumber(gscTotals.clicks), detail: `${formatNumber(gscTotals.impressions)} impressions, CTR ${formatPercent(gscTotals.ctr)}` },
+                { label: 'Avg position', value: formatPosition(gscTotals.averagePosition), detail: 'Lower is better — top results = 1' },
+              )
+            }
 
             return (
               <div className="space-y-6">
@@ -3877,7 +4091,7 @@ export function AdminApp({ user }: { user: User }) {
                       <h2 className="text-base font-semibold tracking-tight text-foreground">Site Analytics</h2>
                       <p className="text-sm text-muted-foreground">
                         {analyticsConfigured
-                          ? 'Google Analytics 4 & Search Console — coming online.'
+                          ? `${ga4Configured ? 'Google Analytics 4' : ''}${ga4Configured && gscConfigured ? ' + ' : ''}${gscConfigured ? 'Search Console' : ''}, ${periodLabel}.`
                           : 'Connect Google Analytics 4 and Search Console to surface live traffic data here.'}
                       </p>
                     </div>
@@ -3919,9 +4133,190 @@ export function AdminApp({ user }: { user: User }) {
                       </Button>
                     </div>
                   ) : (
-                    <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
-                      Live KPIs from Google Analytics 4 and Search Console will appear here in the next release.
-                    </div>
+                    <>
+                      {(ga4Analytics.error || gscAnalytics.error) && (
+                        <div className="space-y-2">
+                          {ga4Analytics.error && (
+                            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                              <strong>Couldn&apos;t reach Google Analytics 4:</strong> {ga4Analytics.error}
+                            </div>
+                          )}
+                          {gscAnalytics.error && (
+                            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                              <strong>Couldn&apos;t reach Search Console:</strong> {gscAnalytics.error}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {(ga4Analytics.loading || gscAnalytics.loading) && !ga4Totals && !gscTotals ? (
+                        <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+                          Loading analytics…
+                        </div>
+                      ) : kpiTiles.length === 0 && !ga4Analytics.error && !gscAnalytics.error ? (
+                        <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+                          Connected, but no data has been collected yet. Make sure the GA4 tag is firing on the public site and that Search Console has been verified for at least 48 hours.
+                        </div>
+                      ) : (
+                        <>
+                          {kpiTiles.length > 0 && (
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                              {kpiTiles.map((tile) => (
+                                <Card className="transition-colors hover:border-cyan-400/30" key={tile.label}>
+                                  <CardHeader className="space-y-1 pb-3">
+                                    <CardDescription className="text-[11px] font-semibold uppercase tracking-[0.12em]">
+                                      {tile.label}
+                                    </CardDescription>
+                                    <div className="text-3xl font-bold leading-none tracking-tight text-foreground">
+                                      {tile.value}
+                                    </div>
+                                  </CardHeader>
+                                  <CardContent>
+                                    <p className="text-xs text-muted-foreground">{tile.detail}</p>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                            <Card>
+                              <CardHeader className="pb-2">
+                                <CardTitle>Sessions over time</CardTitle>
+                                <CardDescription>Daily GA4 sessions across the period.</CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                {ga4Ts.length > 1 ? (
+                                  <svg className="w-full" viewBox={`0 0 ${chartWidth} ${chartHeight + 24}`} preserveAspectRatio="none">
+                                    <polyline
+                                      fill="none"
+                                      points={sparklinePoints}
+                                      stroke="currentColor"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                      className="text-primary"
+                                    />
+                                    {ga4Ts.map((d, i) => {
+                                      if (i % Math.max(1, Math.floor(ga4Ts.length / 6)) !== 0 && i !== ga4Ts.length - 1) return null
+                                      const x = (i / (ga4Ts.length - 1)) * chartWidth
+                                      return (
+                                        <text
+                                          key={d.date}
+                                          x={x}
+                                          y={chartHeight + 18}
+                                          textAnchor={i === 0 ? 'start' : i === ga4Ts.length - 1 ? 'end' : 'middle'}
+                                          fontSize="10"
+                                          className="fill-muted-foreground"
+                                        >
+                                          {d.date.slice(5)}
+                                        </text>
+                                      )
+                                    })}
+                                  </svg>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">Not enough data yet.</p>
+                                )}
+                              </CardContent>
+                            </Card>
+
+                            <Card>
+                              <CardHeader className="pb-2">
+                                <CardTitle>Top sources</CardTitle>
+                                <CardDescription>By sessions (GA4).</CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                {ga4Analytics.topSources.length > 0 ? (
+                                  <ul className="space-y-2 text-sm">
+                                    {ga4Analytics.topSources.slice(0, 8).map((entry) => {
+                                      const maxSessions = ga4Analytics.topSources[0]?.sessions || 1
+                                      const pct = (entry.sessions / maxSessions) * 100
+                                      return (
+                                        <li className="space-y-1" key={`${entry.source}-${entry.medium}`}>
+                                          <div className="flex justify-between text-xs">
+                                            <span className="font-medium text-foreground">{entry.source} / {entry.medium}</span>
+                                            <span className="text-muted-foreground">{formatNumber(entry.sessions)}</span>
+                                          </div>
+                                          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                                            <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                                          </div>
+                                        </li>
+                                      )
+                                    })}
+                                  </ul>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">No source data yet.</p>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          <div className="grid gap-6 lg:grid-cols-2">
+                            <Card>
+                              <CardHeader className="pb-2">
+                                <CardTitle>Top pages</CardTitle>
+                                <CardDescription>By sessions (GA4).</CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                {ga4Analytics.topPages.length > 0 ? (
+                                  <ul className="space-y-2 text-sm">
+                                    {ga4Analytics.topPages.slice(0, 8).map((entry) => (
+                                      <li className="flex items-start justify-between gap-3" key={entry.path}>
+                                        <div className="min-w-0 flex-1">
+                                          <div className="truncate font-medium text-foreground" title={entry.title || entry.path}>
+                                            {entry.title || entry.path}
+                                          </div>
+                                          <div className="truncate text-xs text-muted-foreground" title={entry.path}>
+                                            {entry.path}
+                                          </div>
+                                        </div>
+                                        <div className="shrink-0 text-right text-xs">
+                                          <div className="font-medium text-foreground">{formatNumber(entry.sessions)}</div>
+                                          <div className="text-muted-foreground">{formatNumber(entry.activeUsers)} users</div>
+                                        </div>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">No page data yet.</p>
+                                )}
+                              </CardContent>
+                            </Card>
+
+                            <Card>
+                              <CardHeader className="pb-2">
+                                <CardTitle>Top search queries</CardTitle>
+                                <CardDescription>By clicks (Search Console).</CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                {gscAnalytics.topQueries.length > 0 ? (
+                                  <ul className="space-y-2 text-sm">
+                                    {gscAnalytics.topQueries.slice(0, 8).map((entry) => (
+                                      <li className="flex items-start justify-between gap-3" key={entry.query}>
+                                        <div className="min-w-0 flex-1">
+                                          <div className="truncate font-medium text-foreground" title={entry.query}>
+                                            {entry.query || '(no query)'}
+                                          </div>
+                                          <div className="text-xs text-muted-foreground">
+                                            pos {formatPosition(entry.position)} · CTR {formatPercent(entry.ctr)}
+                                          </div>
+                                        </div>
+                                        <div className="shrink-0 text-right text-xs">
+                                          <div className="font-medium text-foreground">{formatNumber(entry.clicks)}</div>
+                                          <div className="text-muted-foreground">{formatNumber(entry.impressions)} imp.</div>
+                                        </div>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">No query data yet.</p>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </div>
+                        </>
+                      )}
+                    </>
                   )}
                 </div>
 

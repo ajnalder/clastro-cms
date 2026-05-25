@@ -5,9 +5,20 @@ export interface ClastroChangelogEntry {
   changes: string[];
 }
 
-export const CLASTRO_VERSION = "0.3.0";
+export const CLASTRO_VERSION = "0.3.1";
 
 export const CLASTRO_CHANGELOG: ClastroChangelogEntry[] = [
+  {
+    version: "0.3.1",
+    date: "2026-05-25",
+    summary: "Dashboard lights up: live GA4 + Search Console KPIs and supporting panels.",
+    changes: [
+      "Added a Search Console client (src/lib/google-search-console.ts) that wraps the searchAnalytics.query endpoint for overview totals, daily clicks/impressions timeseries, top queries, and top pages.",
+      "New GET /api/analytics/search-console?period=7d|30d|90d returning the same { configured, ...data, error } envelope as the GA4 endpoint.",
+      "Rebuilt the Dashboard analytics section: KPI tiles for Sessions, Active users, Clicks, and Avg position; daily sessions sparkline; top pages, top sources, and top search queries panels. GA4 and Search Console are fetched in parallel, both errors surface independently, and the period selector drives both.",
+      "Sensible empty state when an integration is connected but no data has been collected yet (e.g. the GA4 tag hasn't started firing or Search Console hasn't finished its 48-hour warm-up).",
+    ],
+  },
   {
     version: "0.3.0",
     date: "2026-05-23",

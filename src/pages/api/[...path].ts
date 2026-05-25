@@ -82,6 +82,7 @@ import {
   getFormSubmissionById,
   listContentItems,
   listFormSubmissions,
+  summarizeFormSubmissionsForDashboard,
   sendResendEmail,
   upsertContentItem,
   upsertEmailSettings,
@@ -1343,6 +1344,17 @@ export const GET: APIRoute = async (context) => {
     const url = new URL(context.request.url);
     const includeArchived = url.searchParams.get("archived") === "1";
     return json(await listFormSubmissions(context.locals, { includeArchived }));
+  }
+
+  if (segments[0] === "dashboard" && segments[1] === "form-submissions") {
+    const auth = await requireAdmin(context);
+    if (auth.response) {
+      return auth.response;
+    }
+    const url = new URL(context.request.url);
+    const periodParam = url.searchParams.get("period") || "7d";
+    const days = periodParam === "90d" ? 90 : periodParam === "30d" ? 30 : 7;
+    return json(await summarizeFormSubmissionsForDashboard(context.locals, days));
   }
 
   if (segments[0] === "integrations" && segments[1] === "analytics") {

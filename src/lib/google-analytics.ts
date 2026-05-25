@@ -21,17 +21,23 @@ export interface GoogleAnalyticsParams {
   days: number;
 }
 
+export interface GoogleAnalyticsTotals {
+  sessions: number;
+  activeUsers: number;
+  engagementRate: number;
+  averageSessionDurationSec: number;
+}
+
 export interface GoogleAnalyticsResult {
   period: { since: string; until: string; days: number };
-  totals: {
-    sessions: number;
-    activeUsers: number;
-    engagementRate: number;
-    averageSessionDurationSec: number;
-  };
+  previousPeriod: { since: string; until: string; days: number };
+  totals: GoogleAnalyticsTotals;
+  previousTotals: GoogleAnalyticsTotals;
   timeseries: Array<{ date: string; sessions: number; activeUsers: number }>;
   topPages: Array<{ path: string; title: string; sessions: number; activeUsers: number }>;
   topSources: Array<{ source: string; medium: string; sessions: number }>;
+  deviceBreakdown: Array<{ device: string; sessions: number }>;
+  countryBreakdown: Array<{ country: string; sessions: number }>;
 }
 
 export async function fetchGoogleAnalytics(
@@ -43,10 +49,24 @@ export async function fetchGoogleAnalytics(
   }
   const normalizedDays = days > 0 ? Math.floor(days) : 7;
   const dateRange = { startDate: `${normalizedDays}daysAgo`, endDate: "today" };
+  // Comparison: same number of days, immediately prior. We add +1 so the two
+  // windows don't overlap on the boundary day.
+  const previousRange = {
+    startDate: `${normalizedDays * 2}daysAgo`,
+    endDate: `${normalizedDays + 1}daysAgo`,
+  };
 
-  const [totalsRes, timeseriesRes, topPagesRes, topSourcesRes] = await Promise.all([
+  const [
+    totalsRes,
+    timeseriesRes,
+    topPagesRes,
+    topSourcesRes,
+    deviceRes,
+    countryRes,
+  ] = await Promise.all([
+    // Totals: pass BOTH date ranges so the API returns two rows (one per range).
     runReport(accessToken, propertyId, {
-      dateRanges: [dateRange],
+      dateRanges: [dateRange, previousRange],
       metrics: [
         { name: "sessions" },
         { name: "activeUsers" },
@@ -72,16 +92,39 @@ export async function fetchGoogleAnalytics(
       dimensions: [{ name: "sessionSource" }, { name: "sessionMedium" }],
       metrics: [{ name: "sessions" }],
       orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-      limit: 10,
+      limit: 25, // bumped so AI-referral detection has enough rows to work with
+    }),
+    runReport(accessToken, propertyId, {
+      dateRanges: [dateRange],
+      dimensions: [{ name: "deviceCategory" }],
+      metrics: [{ name: "sessions" }],
+      orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+    }),
+    runReport(accessToken, propertyId, {
+      dateRanges: [dateRange],
+      dimensions: [{ name: "country" }],
+      metrics: [{ name: "sessions" }],
+      orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+      limit: 8,
     }),
   ]);
 
-  const totalsRow = totalsRes.rows?.[0]?.metricValues || [];
-  const totals = {
-    sessions: numberAt(totalsRow, 0),
-    activeUsers: numberAt(totalsRow, 1),
-    engagementRate: fractionAt(totalsRow, 2),
-    averageSessionDurationSec: numberAt(totalsRow, 3),
+  // With two date ranges, the API returns two rows in `totals` — one per
+  // range, in the order the ranges were specified. So row 0 = current,
+  // row 1 = previous.
+  const currentRow = totalsRes.rows?.[0]?.metricValues || [];
+  const previousRow = totalsRes.rows?.[1]?.metricValues || [];
+  const totals: GoogleAnalyticsTotals = {
+    sessions: numberAt(currentRow, 0),
+    activeUsers: numberAt(currentRow, 1),
+    engagementRate: fractionAt(currentRow, 2),
+    averageSessionDurationSec: numberAt(currentRow, 3),
+  };
+  const previousTotals: GoogleAnalyticsTotals = {
+    sessions: numberAt(previousRow, 0),
+    activeUsers: numberAt(previousRow, 1),
+    engagementRate: fractionAt(previousRow, 2),
+    averageSessionDurationSec: numberAt(previousRow, 3),
   };
 
   const timeseries = (timeseriesRes.rows || []).map((row) => ({
@@ -103,15 +146,31 @@ export async function fetchGoogleAnalytics(
     sessions: numberMetricAt(row, 0),
   }));
 
+  const deviceBreakdown = (deviceRes.rows || []).map((row) => ({
+    device: stringDimensionAt(row, 0) || "(unknown)",
+    sessions: numberMetricAt(row, 0),
+  }));
+
+  const countryBreakdown = (countryRes.rows || []).map((row) => ({
+    country: stringDimensionAt(row, 0) || "(unknown)",
+    sessions: numberMetricAt(row, 0),
+  }));
+
   const since = isoDateDaysAgo(normalizedDays);
   const until = isoDateDaysAgo(0);
+  const prevSince = isoDateDaysAgo(normalizedDays * 2);
+  const prevUntil = isoDateDaysAgo(normalizedDays + 1);
 
   return {
     period: { since, until, days: normalizedDays },
+    previousPeriod: { since: prevSince, until: prevUntil, days: normalizedDays },
     totals,
+    previousTotals,
     timeseries,
     topPages,
     topSources,
+    deviceBreakdown,
+    countryBreakdown,
   };
 }
 

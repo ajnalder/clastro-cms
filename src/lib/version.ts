@@ -5,9 +5,22 @@ export interface ClastroChangelogEntry {
   changes: string[];
 }
 
-export const CLASTRO_VERSION = "0.4.1";
+export const CLASTRO_VERSION = "0.5.0";
 
 export const CLASTRO_CHANGELOG: ClastroChangelogEntry[] = [
+  {
+    version: "0.5.0",
+    date: "2026-05-25",
+    summary: "Dashboard goes from vanity-metric to actionable: period comparisons, form-submissions tile, SEO opportunities, device/country splits, AI search referrals.",
+    changes: [
+      "Period-over-period change badges on every KPI tile: ↑12% green, ↓8% red, with the avg-position metric inverted (lower = better). Both GA4 and Search Console now fetch the same-length prior window in the same request so comparisons cost no extra API calls for GA4.",
+      "Form submissions is now a first-class KPI tile alongside Sessions / Active Users / Clicks / Avg Position. Shows count for the period, prior-period comparison, and \"N unread in inbox\" detail. Backed by a new GET /api/dashboard/form-submissions endpoint.",
+      "New SEO opportunities (striking distance) panel: queries ranking position 4–20 with 50+ impressions, sorted by impressions/position upside. The kind of insight you'd pay $200/month for at Semrush — derived from the existing Search Console pull (no extra API cost).",
+      "New Devices + Countries breakdown widgets pulled from GA4's deviceCategory and country dimensions. Two extra runReport calls per dashboard load.",
+      "New AI search referrals widget: detects sessions from ChatGPT, Claude, Gemini, Perplexity, Copilot, etc. by filtering the existing topSources data (no extra API cost).",
+      "Bumped GA4 topSources fetch from 10 to 25 rows so AI-referral detection has enough data to work with, and bumped GSC topQueries fetch from 10 to 100 rows so the striking-distance set is meaningful.",
+    ],
+  },
   {
     version: "0.4.1",
     date: "2026-05-25",

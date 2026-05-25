@@ -2563,6 +2563,64 @@ export async function deleteFormSubmissionById(
   await db.prepare("DELETE FROM form_submissions WHERE id = ?").bind(id).run();
 }
 
+/**
+ * Dashboard helper: counts form submissions created in the last N days, plus
+ * the same count for the prior N days (so the dashboard can show a % change),
+ * plus the number of unarchived submissions ("inbox").
+ *
+ * Days is clamped to 1..365 — anything outside that is meaningless on the
+ * dashboard.
+ */
+export async function summarizeFormSubmissionsForDashboard(
+  locals: App.Locals | undefined,
+  days: number,
+): Promise<{ count: number; previousCount: number; unread: number }> {
+  const db = getDb(locals);
+  if (!db) {
+    return { count: 0, previousCount: 0, unread: 0 };
+  }
+  const normalizedDays = Math.max(1, Math.min(365, Math.floor(days)));
+
+  const since = isoDateDaysAgoUtc(normalizedDays);
+  const previousSince = isoDateDaysAgoUtc(normalizedDays * 2);
+
+  try {
+    const [currentRow, previousRow, unreadRow] = await Promise.all([
+      db
+        .prepare(
+          "SELECT COUNT(*) AS c FROM form_submissions WHERE datetime(created_at) >= datetime(?)",
+        )
+        .bind(since)
+        .first<{ c: number }>(),
+      db
+        .prepare(
+          `SELECT COUNT(*) AS c FROM form_submissions
+           WHERE datetime(created_at) >= datetime(?)
+             AND datetime(created_at) < datetime(?)`,
+        )
+        .bind(previousSince, since)
+        .first<{ c: number }>(),
+      db
+        .prepare("SELECT COUNT(*) AS c FROM form_submissions WHERE archived = 0")
+        .first<{ c: number }>(),
+    ]);
+    return {
+      count: Number(currentRow?.c || 0),
+      previousCount: Number(previousRow?.c || 0),
+      unread: Number(unreadRow?.c || 0),
+    };
+  } catch (error) {
+    console.warn("summarizeFormSubmissionsForDashboard fallback:", error);
+    return { count: 0, previousCount: 0, unread: 0 };
+  }
+}
+
+function isoDateDaysAgoUtc(daysAgo: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - daysAgo);
+  return d.toISOString();
+}
+
 export async function sendResendEmail(input: {
   apiKey: string;
   from: string;

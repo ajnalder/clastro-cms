@@ -1532,54 +1532,80 @@ export function AdminApp({ user }: { user: User }) {
 
   const [analyticsPeriod, setAnalyticsPeriod] = useState<'7d' | '30d' | '90d'>('7d')
 
+  type Ga4Totals = {
+    sessions: number
+    activeUsers: number
+    engagementRate: number
+    averageSessionDurationSec: number
+  }
   type Ga4AnalyticsState = {
     configured: boolean
     error?: string
     loading: boolean
     period: { since: string; until: string; days: number } | null
-    totals: {
-      sessions: number
-      activeUsers: number
-      engagementRate: number
-      averageSessionDurationSec: number
-    } | null
+    totals: Ga4Totals | null
+    previousTotals: Ga4Totals | null
     timeseries: Array<{ date: string; sessions: number; activeUsers: number }>
     topPages: Array<{ path: string; title: string; sessions: number; activeUsers: number }>
     topSources: Array<{ source: string; medium: string; sessions: number }>
+    deviceBreakdown: Array<{ device: string; sessions: number }>
+    countryBreakdown: Array<{ country: string; sessions: number }>
   }
   const [ga4Analytics, setGa4Analytics] = useState<Ga4AnalyticsState>({
     configured: false,
     loading: false,
     period: null,
     totals: null,
+    previousTotals: null,
     timeseries: [],
     topPages: [],
     topSources: [],
+    deviceBreakdown: [],
+    countryBreakdown: [],
   })
 
+  type GscTotals = {
+    clicks: number
+    impressions: number
+    ctr: number
+    averagePosition: number
+  }
+  type GscQueryRow = { query: string; clicks: number; impressions: number; ctr: number; position: number }
   type GscAnalyticsState = {
     configured: boolean
     error?: string
     loading: boolean
     period: { since: string; until: string; days: number } | null
-    totals: {
-      clicks: number
-      impressions: number
-      ctr: number
-      averagePosition: number
-    } | null
+    totals: GscTotals | null
+    previousTotals: GscTotals | null
     timeseries: Array<{ date: string; clicks: number; impressions: number }>
-    topQueries: Array<{ query: string; clicks: number; impressions: number; ctr: number; position: number }>
+    topQueries: GscQueryRow[]
     topPages: Array<{ page: string; clicks: number; impressions: number; ctr: number; position: number }>
+    strikingDistance: GscQueryRow[]
   }
   const [gscAnalytics, setGscAnalytics] = useState<GscAnalyticsState>({
     configured: false,
     loading: false,
     period: null,
     totals: null,
+    previousTotals: null,
     timeseries: [],
     topQueries: [],
     topPages: [],
+    strikingDistance: [],
+  })
+
+  type FormSubmissionsSummary = {
+    loading: boolean
+    count: number
+    previousCount: number
+    unread: number
+  }
+  const [formSubmissionsSummary, setFormSubmissionsSummary] = useState<FormSubmissionsSummary>({
+    loading: false,
+    count: 0,
+    previousCount: 0,
+    unread: 0,
   })
 
   const [uploadingSettingsAsset, setUploadingSettingsAsset] = useState<SettingsAssetField | ''>('')
@@ -1968,7 +1994,8 @@ export function AdminApp({ user }: { user: User }) {
     }
     let cancelled = false
 
-    if (analyticsSettings.hasGa4ServiceAccount && analyticsSettings.ga4PropertyId) {
+    const ga4Configured = (analyticsSettings.hasGoogleOauthConnection || analyticsSettings.hasGa4ServiceAccount) && Boolean(analyticsSettings.ga4PropertyId)
+    if (ga4Configured) {
       setGa4Analytics((current) => ({ ...current, loading: true, error: undefined }))
       void (async () => {
         try {
@@ -1985,6 +2012,9 @@ export function AdminApp({ user }: { user: User }) {
             topPages?: Ga4AnalyticsState['topPages']
             topSources?: Ga4AnalyticsState['topSources']
             totals?: Ga4AnalyticsState['totals']
+            previousTotals?: Ga4AnalyticsState['previousTotals']
+            deviceBreakdown?: Ga4AnalyticsState['deviceBreakdown']
+            countryBreakdown?: Ga4AnalyticsState['countryBreakdown']
           }
           if (cancelled) return
           setGa4Analytics({
@@ -1996,6 +2026,9 @@ export function AdminApp({ user }: { user: User }) {
             topPages: data.topPages || [],
             topSources: data.topSources || [],
             totals: data.totals || null,
+            previousTotals: data.previousTotals || null,
+            deviceBreakdown: data.deviceBreakdown || [],
+            countryBreakdown: data.countryBreakdown || [],
           })
         } catch (error) {
           if (!cancelled) {
@@ -2014,13 +2047,17 @@ export function AdminApp({ user }: { user: User }) {
         loading: false,
         period: null,
         totals: null,
+        previousTotals: null,
         timeseries: [],
         topPages: [],
         topSources: [],
+        deviceBreakdown: [],
+        countryBreakdown: [],
       })
     }
 
-    if (analyticsSettings.hasGa4ServiceAccount && analyticsSettings.gscSiteUrl) {
+    const gscConfigured = (analyticsSettings.hasGoogleOauthConnection || analyticsSettings.hasGa4ServiceAccount) && Boolean(analyticsSettings.gscSiteUrl)
+    if (gscConfigured) {
       setGscAnalytics((current) => ({ ...current, loading: true, error: undefined }))
       void (async () => {
         try {
@@ -2037,6 +2074,8 @@ export function AdminApp({ user }: { user: User }) {
             topQueries?: GscAnalyticsState['topQueries']
             topPages?: GscAnalyticsState['topPages']
             totals?: GscAnalyticsState['totals']
+            previousTotals?: GscAnalyticsState['previousTotals']
+            strikingDistance?: GscAnalyticsState['strikingDistance']
           }
           if (cancelled) return
           setGscAnalytics({
@@ -2048,6 +2087,8 @@ export function AdminApp({ user }: { user: User }) {
             topQueries: data.topQueries || [],
             topPages: data.topPages || [],
             totals: data.totals || null,
+            previousTotals: data.previousTotals || null,
+            strikingDistance: data.strikingDistance || [],
           })
         } catch (error) {
           if (!cancelled) {
@@ -2066,14 +2107,35 @@ export function AdminApp({ user }: { user: User }) {
         loading: false,
         period: null,
         totals: null,
+        previousTotals: null,
         timeseries: [],
         topQueries: [],
         topPages: [],
+        strikingDistance: [],
       })
     }
 
+    // Form submissions: independent of analytics; always shows on dashboard.
+    setFormSubmissionsSummary((current) => ({ ...current, loading: true }))
+    void (async () => {
+      try {
+        const response = await fetch(`/api/dashboard/form-submissions?period=${analyticsPeriod}`)
+        if (!response.ok) throw new Error(`Failed to load form submissions summary (${response.status})`)
+        const data = await response.json() as { count?: number; previousCount?: number; unread?: number }
+        if (cancelled) return
+        setFormSubmissionsSummary({
+          loading: false,
+          count: Number(data.count || 0),
+          previousCount: Number(data.previousCount || 0),
+          unread: Number(data.unread || 0),
+        })
+      } catch {
+        if (!cancelled) setFormSubmissionsSummary((current) => ({ ...current, loading: false }))
+      }
+    })()
+
     return () => { cancelled = true }
-  }, [tab, analyticsPeriod, analyticsSettings.hasGa4ServiceAccount, analyticsSettings.ga4PropertyId, analyticsSettings.gscSiteUrl])
+  }, [tab, analyticsPeriod, analyticsSettings.hasGoogleOauthConnection, analyticsSettings.hasGa4ServiceAccount, analyticsSettings.ga4PropertyId, analyticsSettings.gscSiteUrl])
 
   // Load Email tab data (settings + submissions) when activated
   useEffect(() => {
@@ -4122,9 +4184,9 @@ export function AdminApp({ user }: { user: User }) {
 
             const [latestRelease, ...priorReleases] = CLASTRO_CHANGELOG
 
-            const ga4Configured = analyticsSettings.hasGa4ServiceAccount
+            const ga4Configured = (analyticsSettings.hasGoogleOauthConnection || analyticsSettings.hasGa4ServiceAccount)
               && Boolean(analyticsSettings.ga4PropertyId)
-            const gscConfigured = analyticsSettings.hasGa4ServiceAccount
+            const gscConfigured = (analyticsSettings.hasGoogleOauthConnection || analyticsSettings.hasGa4ServiceAccount)
               && Boolean(analyticsSettings.gscSiteUrl)
             const analyticsConfigured = ga4Configured || gscConfigured
 
@@ -4138,6 +4200,20 @@ export function AdminApp({ user }: { user: User }) {
               const m = Math.floor(sec / 60)
               const s = Math.round(sec - m * 60)
               return `${m}m ${s}s`
+            }
+
+            // Period-over-period % change with sensible "is higher better?"
+            // semantics. averagePosition is the only inverted metric (lower
+            // position = better rank), so it flips the up/down colour.
+            type ChangeBadge = { pct: number; direction: 'up' | 'down' | 'flat'; isGood: boolean } | null
+            function computeChange(current: number | undefined, previous: number | undefined, lowerIsBetter = false): ChangeBadge {
+              if (current === undefined || previous === undefined) return null
+              if (previous === 0 && current === 0) return { pct: 0, direction: 'flat', isGood: true }
+              if (previous === 0) return { pct: 100, direction: 'up', isGood: !lowerIsBetter }
+              const pct = ((current - previous) / previous) * 100
+              const direction: 'up' | 'down' | 'flat' = Math.abs(pct) < 0.5 ? 'flat' : pct > 0 ? 'up' : 'down'
+              const isGood = lowerIsBetter ? direction !== 'up' : direction !== 'down'
+              return { pct: Math.abs(pct), direction, isGood }
             }
 
             const ga4Ts = ga4Analytics.timeseries
@@ -4159,20 +4235,67 @@ export function AdminApp({ user }: { user: User }) {
               : `Past ${analyticsPeriod}`
 
             const ga4Totals = ga4Analytics.totals
+            const ga4Previous = ga4Analytics.previousTotals
             const gscTotals = gscAnalytics.totals
-            const kpiTiles: Array<{ detail: string; label: string; value: string }> = []
+            const gscPrevious = gscAnalytics.previousTotals
+            type KpiTile = { detail: string; label: string; value: string; change: ChangeBadge }
+            const kpiTiles: KpiTile[] = []
             if (ga4Totals) {
               kpiTiles.push(
-                { label: 'Sessions', value: formatNumber(ga4Totals.sessions), detail: `Avg duration ${formatDuration(ga4Totals.averageSessionDurationSec)}` },
-                { label: 'Active users', value: formatNumber(ga4Totals.activeUsers), detail: `Engagement ${formatPercent(ga4Totals.engagementRate)}` },
+                {
+                  label: 'Sessions',
+                  value: formatNumber(ga4Totals.sessions),
+                  detail: `Avg duration ${formatDuration(ga4Totals.averageSessionDurationSec)}`,
+                  change: computeChange(ga4Totals.sessions, ga4Previous?.sessions),
+                },
+                {
+                  label: 'Active users',
+                  value: formatNumber(ga4Totals.activeUsers),
+                  detail: `Engagement ${formatPercent(ga4Totals.engagementRate)}`,
+                  change: computeChange(ga4Totals.activeUsers, ga4Previous?.activeUsers),
+                },
               )
             }
             if (gscTotals) {
               kpiTiles.push(
-                { label: 'Clicks (search)', value: formatNumber(gscTotals.clicks), detail: `${formatNumber(gscTotals.impressions)} impressions, CTR ${formatPercent(gscTotals.ctr)}` },
-                { label: 'Avg position', value: formatPosition(gscTotals.averagePosition), detail: 'Lower is better — top results = 1' },
+                {
+                  label: 'Clicks (search)',
+                  value: formatNumber(gscTotals.clicks),
+                  detail: `${formatNumber(gscTotals.impressions)} impressions, CTR ${formatPercent(gscTotals.ctr)}`,
+                  change: computeChange(gscTotals.clicks, gscPrevious?.clicks),
+                },
+                {
+                  label: 'Avg position',
+                  value: formatPosition(gscTotals.averagePosition),
+                  detail: 'Lower is better — top results = 1',
+                  // Position: lower is better, so flip the good/bad colour mapping.
+                  change: computeChange(gscTotals.averagePosition, gscPrevious?.averagePosition, true),
+                },
               )
             }
+            // 5th tile: Form submissions for the same period — the actual
+            // business outcome for a service-driven site.
+            kpiTiles.push({
+              label: 'Form submissions',
+              value: formatNumber(formSubmissionsSummary.count),
+              detail: formSubmissionsSummary.unread > 0
+                ? `${formSubmissionsSummary.unread} unread in inbox`
+                : 'All caught up',
+              change: computeChange(formSubmissionsSummary.count, formSubmissionsSummary.previousCount),
+            })
+
+            // AI search referrals: derive from existing topSources by host match.
+            const AI_REFERRAL_HOSTS = new Set([
+              'chatgpt.com', 'chat.openai.com',
+              'claude.ai',
+              'gemini.google.com', 'bard.google.com',
+              'perplexity.ai', 'www.perplexity.ai',
+              'copilot.microsoft.com',
+              'phind.com',
+              'you.com',
+            ])
+            const aiReferrals = ga4Analytics.topSources.filter((s) => AI_REFERRAL_HOSTS.has(s.source.toLowerCase()))
+            const aiReferralTotal = aiReferrals.reduce((acc, s) => acc + s.sessions, 0)
 
             return (
               <div className="space-y-6">
@@ -4252,13 +4375,26 @@ export function AdminApp({ user }: { user: User }) {
                       ) : (
                         <>
                           {kpiTiles.length > 0 && (
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                               {kpiTiles.map((tile) => (
                                 <Card className="transition-colors hover:border-cyan-400/30" key={tile.label}>
                                   <CardHeader className="space-y-1 pb-3">
-                                    <CardDescription className="text-[11px] font-semibold uppercase tracking-[0.12em]">
-                                      {tile.label}
-                                    </CardDescription>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <CardDescription className="text-[11px] font-semibold uppercase tracking-[0.12em]">
+                                        {tile.label}
+                                      </CardDescription>
+                                      {tile.change && tile.change.direction !== 'flat' && (
+                                        <span className={cn(
+                                          'inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold',
+                                          tile.change.isGood
+                                            ? 'bg-emerald-400/15 text-emerald-300'
+                                            : 'bg-rose-400/15 text-rose-300',
+                                        )}>
+                                          <span aria-hidden="true">{tile.change.direction === 'up' ? '↑' : '↓'}</span>
+                                          {tile.change.pct.toFixed(0)}%
+                                        </span>
+                                      )}
+                                    </div>
                                     <div className="text-3xl font-bold leading-none tracking-tight text-foreground">
                                       {tile.value}
                                     </div>
@@ -4402,6 +4538,137 @@ export function AdminApp({ user }: { user: User }) {
                                   </ul>
                                 ) : (
                                   <p className="text-sm text-muted-foreground">No query data yet.</p>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          {/* ── SEO striking-distance opportunities ───── */}
+                          {gscAnalytics.strikingDistance.length > 0 && (
+                            <Card className="border-cyan-400/20">
+                              <CardHeader className="pb-2">
+                                <CardTitle>SEO opportunities (striking distance)</CardTitle>
+                                <CardDescription>
+                                  Queries ranking position 4–20 with 50+ impressions — small content/optimisation pushes move these to page 1.
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="border-b border-border text-left text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                                        <th className="pb-2">Query</th>
+                                        <th className="pb-2 text-right">Position</th>
+                                        <th className="pb-2 text-right">Impressions</th>
+                                        <th className="pb-2 text-right">Clicks</th>
+                                        <th className="pb-2 text-right">CTR</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {gscAnalytics.strikingDistance.map((entry) => (
+                                        <tr className="border-b border-border/40 last:border-0" key={entry.query}>
+                                          <td className="py-2 pr-3 font-medium text-foreground">{entry.query}</td>
+                                          <td className="py-2 text-right text-foreground">{formatPosition(entry.position)}</td>
+                                          <td className="py-2 text-right text-muted-foreground">{formatNumber(entry.impressions)}</td>
+                                          <td className="py-2 text-right text-muted-foreground">{formatNumber(entry.clicks)}</td>
+                                          <td className="py-2 text-right text-muted-foreground">{formatPercent(entry.ctr)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
+
+                          {/* ── Device + Country + AI referrals ───────── */}
+                          <div className="grid gap-6 lg:grid-cols-3">
+                            <Card>
+                              <CardHeader className="pb-2">
+                                <CardTitle>Devices</CardTitle>
+                                <CardDescription>By sessions (GA4).</CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                {ga4Analytics.deviceBreakdown.length > 0 ? (
+                                  (() => {
+                                    const total = ga4Analytics.deviceBreakdown.reduce((acc, d) => acc + d.sessions, 0) || 1
+                                    return (
+                                      <ul className="space-y-2 text-sm">
+                                        {ga4Analytics.deviceBreakdown.map((entry) => {
+                                          const pct = (entry.sessions / total) * 100
+                                          return (
+                                            <li className="space-y-1" key={entry.device}>
+                                              <div className="flex justify-between text-xs">
+                                                <span className="font-medium text-foreground capitalize">{entry.device}</span>
+                                                <span className="text-muted-foreground">{formatNumber(entry.sessions)} · {pct.toFixed(0)}%</span>
+                                              </div>
+                                              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                                                <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                                              </div>
+                                            </li>
+                                          )
+                                        })}
+                                      </ul>
+                                    )
+                                  })()
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">No device data yet.</p>
+                                )}
+                              </CardContent>
+                            </Card>
+
+                            <Card>
+                              <CardHeader className="pb-2">
+                                <CardTitle>Countries</CardTitle>
+                                <CardDescription>Top 6 by sessions (GA4).</CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                {ga4Analytics.countryBreakdown.length > 0 ? (
+                                  <ul className="space-y-2 text-sm">
+                                    {ga4Analytics.countryBreakdown.slice(0, 6).map((entry) => {
+                                      const maxSessions = ga4Analytics.countryBreakdown[0]?.sessions || 1
+                                      const pct = (entry.sessions / maxSessions) * 100
+                                      return (
+                                        <li className="space-y-1" key={entry.country}>
+                                          <div className="flex justify-between text-xs">
+                                            <span className="font-medium text-foreground">{entry.country}</span>
+                                            <span className="text-muted-foreground">{formatNumber(entry.sessions)}</span>
+                                          </div>
+                                          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                                            <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                                          </div>
+                                        </li>
+                                      )
+                                    })}
+                                  </ul>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">No country data yet.</p>
+                                )}
+                              </CardContent>
+                            </Card>
+
+                            <Card>
+                              <CardHeader className="pb-2">
+                                <CardTitle>AI search referrals</CardTitle>
+                                <CardDescription>Sessions sent by ChatGPT, Claude, Gemini, Perplexity, Copilot, etc.</CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                {aiReferralTotal > 0 ? (
+                                  <div className="space-y-3">
+                                    <div className="text-3xl font-bold leading-none tracking-tight text-foreground">{formatNumber(aiReferralTotal)}</div>
+                                    <ul className="space-y-1 text-xs text-muted-foreground">
+                                      {aiReferrals.map((entry) => (
+                                        <li className="flex justify-between" key={`${entry.source}-${entry.medium}`}>
+                                          <span>{entry.source}</span>
+                                          <span>{formatNumber(entry.sessions)}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">
+                                    No AI referrals yet — Clastro will surface them automatically when ChatGPT, Claude, or other assistants link to your site.
+                                  </p>
                                 )}
                               </CardContent>
                             </Card>

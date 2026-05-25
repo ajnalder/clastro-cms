@@ -25,7 +25,12 @@ import {
   normalizeCmsUserRole,
   verifyPassword,
 } from "../../lib/auth";
-import { getDb, getSessionSecret } from "../../lib/runtime";
+import {
+  getDb,
+  getSessionSecret,
+  getDeploymentGoogleOauthClientId,
+  getDeploymentGoogleOauthClientSecret,
+} from "../../lib/runtime";
 import {
   canAssignRole,
   canDeleteUser,
@@ -169,6 +174,40 @@ function buildGoogleOauthRedirectUri(request: Request): string {
   return url.toString();
 }
 
+/**
+ * Resolves the effective OAuth client for this deployment.
+ *
+ * Priority order:
+ *   1. Per-deployment values stored in D1 (only if an admin pasted them)
+ *   2. Deployment-wide Cloudflare env/secret bindings
+ *
+ * Returns `{ clientId, clientSecret, source }` where `source` indicates
+ * which path was used, for surfacing in the GET /integrations/analytics
+ * response so the UI can collapse the inputs when env vars are in play.
+ */
+function resolveGoogleOauthClient(
+  locals: App.Locals | undefined,
+  settings: { googleOauthClientId: string; googleOauthClientSecret: string },
+): { clientId: string; clientSecret: string; source: "db" | "deployment" | "none" } {
+  if (settings.googleOauthClientId && settings.googleOauthClientSecret) {
+    return {
+      clientId: settings.googleOauthClientId,
+      clientSecret: settings.googleOauthClientSecret,
+      source: "db",
+    };
+  }
+  const envClientId = getDeploymentGoogleOauthClientId(locals);
+  const envClientSecret = getDeploymentGoogleOauthClientSecret(locals);
+  if (envClientId && envClientSecret) {
+    return {
+      clientId: envClientId,
+      clientSecret: envClientSecret,
+      source: "deployment",
+    };
+  }
+  return { clientId: "", clientSecret: "", source: "none" };
+}
+
 function buildStateCookie(state: string, maxAgeSec: number): string {
   return [
     `${GOOGLE_OAUTH_STATE_COOKIE}=${state}`,
@@ -202,23 +241,25 @@ function readStateCookie(request: Request): string {
  * to a service-account JSON if no OAuth token is connected. Throws if
  * neither auth method is configured.
  */
-async function getGoogleAnalyticsAccessToken(settings: {
-  ga4ServiceAccountJson: string;
-  googleOauthClientId: string;
-  googleOauthClientSecret: string;
-  googleOauthRefreshToken: string;
-}): Promise<{ accessToken: string; source: "oauth" | "service-account" }> {
-  if (
-    settings.googleOauthClientId &&
-    settings.googleOauthClientSecret &&
-    settings.googleOauthRefreshToken
-  ) {
-    const token = await getAccessTokenFromRefresh({
-      clientId: settings.googleOauthClientId,
-      clientSecret: settings.googleOauthClientSecret,
-      refreshToken: settings.googleOauthRefreshToken,
-    });
-    return { accessToken: token, source: "oauth" };
+async function getGoogleAnalyticsAccessToken(
+  locals: App.Locals | undefined,
+  settings: {
+    ga4ServiceAccountJson: string;
+    googleOauthClientId: string;
+    googleOauthClientSecret: string;
+    googleOauthRefreshToken: string;
+  },
+): Promise<{ accessToken: string; source: "oauth" | "service-account" }> {
+  if (settings.googleOauthRefreshToken) {
+    const client = resolveGoogleOauthClient(locals, settings);
+    if (client.clientId && client.clientSecret) {
+      const token = await getAccessTokenFromRefresh({
+        clientId: client.clientId,
+        clientSecret: client.clientSecret,
+        refreshToken: settings.googleOauthRefreshToken,
+      });
+      return { accessToken: token, source: "oauth" };
+    }
   }
   if (settings.ga4ServiceAccountJson) {
     const token = await getGoogleAccessToken(settings.ga4ServiceAccountJson, [
@@ -1310,6 +1351,7 @@ export const GET: APIRoute = async (context) => {
       return auth.response;
     }
     const settings = await getAnalyticsSettings(context.locals);
+    const client = resolveGoogleOauthClient(context.locals, settings);
     return json({
       ga4PropertyId: settings.ga4PropertyId,
       gscSiteUrl: settings.gscSiteUrl,
@@ -1319,6 +1361,10 @@ export const GET: APIRoute = async (context) => {
       hasGoogleOauthConnection: Boolean(settings.googleOauthRefreshToken),
       googleOauthEmail: settings.googleOauthEmail,
       googleOauthRedirectUri: buildGoogleOauthRedirectUri(context.request),
+      // "deployment" = env vars are set (UI should hide Client ID/Secret fields).
+      // "db" = admin pasted values into the DB.
+      // "none" = neither configured — UI shows the fields for first-time setup.
+      googleOauthClientSource: client.source,
     });
   }
 
@@ -1336,7 +1382,7 @@ export const GET: APIRoute = async (context) => {
     const periodParam = url.searchParams.get("period") || "7d";
     const days = periodParam === "90d" ? 90 : periodParam === "30d" ? 30 : 7;
     try {
-      const { accessToken } = await getGoogleAnalyticsAccessToken(settings);
+      const { accessToken } = await getGoogleAnalyticsAccessToken(context.locals, settings);
       const data = await fetchGoogleAnalytics({
         accessToken,
         propertyId: settings.ga4PropertyId,
@@ -1365,7 +1411,7 @@ export const GET: APIRoute = async (context) => {
       return json({ configured: false, properties: [] });
     }
     try {
-      const { accessToken } = await getGoogleAnalyticsAccessToken(settings);
+      const { accessToken } = await getGoogleAnalyticsAccessToken(context.locals, settings);
       const properties = await listGoogleAnalyticsProperties(accessToken);
       return json({ configured: true, properties });
     } catch (error) {
@@ -1394,7 +1440,7 @@ export const GET: APIRoute = async (context) => {
     const periodParam = url.searchParams.get("period") || "7d";
     const days = periodParam === "90d" ? 90 : periodParam === "30d" ? 30 : 7;
     try {
-      const { accessToken } = await getGoogleAnalyticsAccessToken(settings);
+      const { accessToken } = await getGoogleAnalyticsAccessToken(context.locals, settings);
       const data = await fetchGoogleSearchConsole({
         accessToken,
         siteUrl: settings.gscSiteUrl,
@@ -1423,7 +1469,7 @@ export const GET: APIRoute = async (context) => {
       return json({ configured: false, sites: [] });
     }
     try {
-      const { accessToken } = await getGoogleAnalyticsAccessToken(settings);
+      const { accessToken } = await getGoogleAnalyticsAccessToken(context.locals, settings);
       const sites = await listGoogleSearchConsoleSites(accessToken);
       return json({ configured: true, sites });
     } catch (error) {
@@ -1444,7 +1490,8 @@ export const GET: APIRoute = async (context) => {
       return auth.response;
     }
     const settings = await getAnalyticsSettings(context.locals);
-    if (!settings.googleOauthClientId || !settings.googleOauthClientSecret) {
+    const client = resolveGoogleOauthClient(context.locals, settings);
+    if (!client.clientId || !client.clientSecret) {
       return redirectToPath(
         context.request,
         "/admin?integrations_error=missing_oauth_client",
@@ -1453,7 +1500,7 @@ export const GET: APIRoute = async (context) => {
     const state = crypto.randomUUID();
     const redirectUri = buildGoogleOauthRedirectUri(context.request);
     const authzUrl = buildAuthorizationUrl({
-      clientId: settings.googleOauthClientId,
+      clientId: client.clientId,
       redirectUri,
       state,
     });
@@ -1497,7 +1544,8 @@ export const GET: APIRoute = async (context) => {
     }
 
     const settings = await getAnalyticsSettings(context.locals);
-    if (!settings.googleOauthClientId || !settings.googleOauthClientSecret) {
+    const client = resolveGoogleOauthClient(context.locals, settings);
+    if (!client.clientId || !client.clientSecret) {
       return new Response(null, {
         status: 303,
         headers: {
@@ -1510,8 +1558,8 @@ export const GET: APIRoute = async (context) => {
     try {
       const redirectUri = buildGoogleOauthRedirectUri(context.request);
       const result = await exchangeCodeForTokens({
-        clientId: settings.googleOauthClientId,
-        clientSecret: settings.googleOauthClientSecret,
+        clientId: client.clientId,
+        clientSecret: client.clientSecret,
         code,
         redirectUri,
       });

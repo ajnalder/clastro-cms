@@ -58,3 +58,20 @@ export function getLinkedInOrgScopesEnabled(locals?: App.Locals) {
   const normalized = getStringBinding("LINKEDIN_ENABLE_ORG_SCOPES").trim().toLowerCase();
   return normalized === "1" || normalized === "true" || normalized === "yes";
 }
+
+// ── Deployment-wide Google OAuth client ─────────────────────────────────
+//
+// Optional. When the operator sets these as Cloudflare vars/secrets
+// (typically via `wrangler secret put GOOGLE_OAUTH_CLIENT_SECRET`), every
+// Clastro deployment under the same wrangler config uses the same OAuth
+// client — the admin only ever sees the "Connect Google account" button.
+//
+// When NOT set, the Integrations UI falls back to per-deployment Client
+// ID / Client Secret fields (stored in D1, encrypted).
+export function getDeploymentGoogleOauthClientId(locals?: App.Locals) {
+  return getStringBinding("GOOGLE_OAUTH_CLIENT_ID");
+}
+
+export function getDeploymentGoogleOauthClientSecret(locals?: App.Locals) {
+  return getStringBinding("GOOGLE_OAUTH_CLIENT_SECRET");
+}

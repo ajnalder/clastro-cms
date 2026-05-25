@@ -24,7 +24,8 @@
 		"binding": "IMAGES"
 	},
 	"vars": {
-		"MEDIA_PUBLIC_BASE_URL": ""
+		"MEDIA_PUBLIC_BASE_URL": "",
+		"GOOGLE_OAUTH_CLIENT_ID": "675858831768-f1i7hucv9iu0l0cd9o3lnm96gq1s4fhm.apps.googleusercontent.com"
 	},
 	"observability": {
 		"enabled": true

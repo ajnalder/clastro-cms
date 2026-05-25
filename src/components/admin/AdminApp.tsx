@@ -1510,6 +1510,7 @@ export function AdminApp({ user }: { user: User }) {
     hasGoogleOauthConnection: boolean
     googleOauthEmail: string
     googleOauthRedirectUri: string
+    googleOauthClientSource: 'deployment' | 'db' | 'none'
   }
   const [analyticsSettings, setAnalyticsSettings] = useState<AnalyticsSettingsState>({
     ga4PropertyId: '',
@@ -1522,6 +1523,7 @@ export function AdminApp({ user }: { user: User }) {
     hasGoogleOauthConnection: false,
     googleOauthEmail: '',
     googleOauthRedirectUri: '',
+    googleOauthClientSource: 'none',
   })
   const [savingAnalyticsSettings, setSavingAnalyticsSettings] = useState(false)
   const [ga4PropertyList, setGa4PropertyList] = useState<Array<{ propertyId: string; displayName: string; accountDisplayName: string }>>([])
@@ -1903,6 +1905,7 @@ export function AdminApp({ user }: { user: User }) {
           hasGoogleOauthConnection: boolean
           googleOauthEmail: string
           googleOauthRedirectUri: string
+          googleOauthClientSource?: 'deployment' | 'db' | 'none'
         }
         if (cancelled) return
         setAnalyticsSettings({
@@ -1916,6 +1919,7 @@ export function AdminApp({ user }: { user: User }) {
           hasGoogleOauthConnection: Boolean(data.hasGoogleOauthConnection),
           googleOauthEmail: data.googleOauthEmail || '',
           googleOauthRedirectUri: data.googleOauthRedirectUri || '',
+          googleOauthClientSource: data.googleOauthClientSource || 'none',
         })
       } catch (error) {
         if (!cancelled) {
@@ -6996,7 +7000,24 @@ export function AdminApp({ user }: { user: User }) {
                       Disconnect
                     </Button>
                   </div>
+                ) : analyticsSettings.googleOauthClientSource === 'deployment' ? (
+                  // Operator pre-provisioned the OAuth client via Cloudflare env vars.
+                  // Skip the Client ID / Secret fields entirely — just show the button.
+                  <div className="space-y-4">
+                    <a
+                      className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+                      href="/api/auth/google/start"
+                    >
+                      Connect Google account
+                    </a>
+                    <p className="text-xs text-muted-foreground">
+                      You&apos;ll be redirected to Google to grant Clastro read access to GA4 and Search Console for whichever account you sign in with.
+                    </p>
+                  </div>
                 ) : (
+                  // First-time setup: admin pastes their own OAuth client.
+                  // Surfaced only on starter forks where the operator hasn't set
+                  // GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET via wrangler.
                   <div className="space-y-4">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <label className="block space-y-1.5">
@@ -7027,7 +7048,7 @@ export function AdminApp({ user }: { user: User }) {
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      Create at console.cloud.google.com → APIs &amp; Services → Credentials → <strong>Create credentials → OAuth client ID → Web application</strong>. Set up the OAuth consent screen first (External, Testing mode, add yourself as a Test user). Then save the Client ID + Secret here, click <strong>Save</strong>, and the <strong>Connect Google account</strong> button will appear.
+                      Create at console.cloud.google.com → APIs &amp; Services → Credentials → <strong>Create credentials → OAuth client ID → Web application</strong>. Tip: set the <code className="font-mono">GOOGLE_OAUTH_CLIENT_ID</code> + <code className="font-mono">GOOGLE_OAUTH_CLIENT_SECRET</code> Cloudflare bindings on this deployment to skip this UI entirely.
                     </p>
                     {analyticsSettings.googleOauthClientId && analyticsSettings.hasGoogleOauthClientSecret && (
                       <a

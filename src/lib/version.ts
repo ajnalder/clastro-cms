@@ -5,9 +5,19 @@ export interface ClastroChangelogEntry {
   changes: string[];
 }
 
-export const CLASTRO_VERSION = "0.4.0";
+export const CLASTRO_VERSION = "0.4.1";
 
 export const CLASTRO_CHANGELOG: ClastroChangelogEntry[] = [
+  {
+    version: "0.4.1",
+    date: "2026-05-25",
+    summary: "Deployment-wide OAuth client: ship a Cloudflare secret once, every install shows a single Connect button.",
+    changes: [
+      "Clastro now reads GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET from Cloudflare bindings. When set, the Integrations panel hides the OAuth Client ID / Secret fields entirely and just shows a Connect Google account button — no per-deployment OAuth client provisioning required.",
+      "Per-deployment DB-stored Client ID / Secret values still take precedence if an admin explicitly pastes them, so starter forks without env vars keep working unchanged.",
+      "Setup for operators running multiple deployments: create one OAuth client in your GCP project, add every deployment's /api/auth/google/callback to its Authorized redirect URIs, then `wrangler secret put GOOGLE_OAUTH_CLIENT_SECRET` and add GOOGLE_OAUTH_CLIENT_ID as a var. Every site you ship inherits the connection.",
+    ],
+  },
   {
     version: "0.4.0",
     date: "2026-05-25",
